@@ -74,7 +74,8 @@ export function createProps(model: Model, scene: THREE.Scene): Props {
       lamp.emissiveIntensity = night * BLOOM_THRESHOLD * 2.2;
       windows.emissiveIntensity = night * 0.9;
       const blink = (light.lampsOn || storm) && Math.floor(now / 1000) % 4 === 0 ? 1 : 0;
-      beacon.intensity = 900 * blink;
+      // blysk ma byc widac na wodzie, ale nie jako plama wieksza niz port
+      beacon.intensity = 350 * blink;
       glow.visible = blink === 1;
     },
   };

@@ -67,7 +67,10 @@ export function createTickers(model: Model, scene: THREE.Scene): Tickers {
         at.copy(s.sprite.position).project(camera);
         const x = ((at.x + 1) / 2) * viewport.width;
         const y = ((1 - at.y) / 2) * viewport.height;
-        const hidden = at.z > 1 || covered({ left: x - px / 2, right: x + px / 2, top: y - px * 0.1875, bottom: y + px * 0.1875 }, panels);
+        const rect = { left: x - px / 2, right: x + px / 2, top: y - px * 0.1875, bottom: y + px * 0.1875 };
+        // uciete krawedzia ekranu tez gasna — polowa tabliczki to polowa ceny
+        const offScreen = rect.left < 0 || rect.top < 0 || rect.right > viewport.width || rect.bottom > viewport.height;
+        const hidden = at.z > 1 || offScreen || covered(rect, panels);
         const material = s.sprite.material;
         material.opacity = fade(material.opacity, hidden ? 0 : 1, dt);
         // niewidoczna tabliczka nie przechwytuje klikniec przeznaczonych dla panelu
