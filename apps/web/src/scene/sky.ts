@@ -31,11 +31,13 @@ function configure(sky: Sky, sun: THREE.Vector3, storm: boolean): void {
  * w poswiacie. Tlo to studyjna winieta w kolorze mgly: jasniej za makieta, ciemniej przy brzegach
  * ekranu — jak makieta sfotografowana na stole.
  */
-export function createSky(renderer: THREE.WebGLRenderer, scene: THREE.Scene): SkyLight {
+export function createSky(renderer: THREE.WebGLRenderer, scene: THREE.Scene, lowPower = false): SkyLight {
 
   const sun = new THREE.DirectionalLight(0xfff1dc, DAY_SUN);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(4096, 4096);
+  // mapa cieni obejmuje cala makiete; na telefonie 2048 px wystarcza, a pamieci i czasu GPU 4x mniej
+  const shadowSize = lowPower ? 2048 : 4096;
+  sun.shadow.mapSize.set(shadowSize, shadowSize);
   sun.shadow.bias = -0.0004;
   sun.shadow.normalBias = 0.6;
   Object.assign(sun.shadow.camera, { left: -240, right: 240, top: 200, bottom: -200, near: 50, far: 900 });

@@ -25,7 +25,7 @@ const { seed, speed, hour: fixedHour, camera: view, company } = readParams(locat
 
 const canvas = document.getElementById("scena") as HTMLCanvasElement;
 const stage = createStage(canvas);
-const sky = createSky(stage.renderer, stage.scene);
+const sky = createSky(stage.renderer, stage.scene, stage.lowPower);
 if (view) {
   const [x, y, z, tx, ty, tz] = view;
   stage.camera.position.set(x, y, z);

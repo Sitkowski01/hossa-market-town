@@ -46,7 +46,10 @@ export function createWalkers(model: Model, scene: THREE.Scene): Walkers {
     const [proto, jacket] = LOOKS[w.look] as (typeof LOOKS)[number];
     const body = model.node(proto).clone();
     body.traverse((o) => {
-      if (o instanceof THREE.Mesh && (o.material as THREE.Material).name === jacket) o.material = coats[i % coats.length];
+      if (!(o instanceof THREE.Mesh)) return;
+      if ((o.material as THREE.Material).name === jacket) o.material = coats[i % coats.length];
+      // cien 1,8-metrowej postaci z wysokosci kamery jest niewidoczny, a kosztuje wywolanie rysowania
+      o.castShadow = false;
     });
     body.visible = false;
     scene.add(body);

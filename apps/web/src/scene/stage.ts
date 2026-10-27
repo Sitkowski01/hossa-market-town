@@ -16,6 +16,8 @@ export interface Stage {
   readonly scene: THREE.Scene;
   readonly camera: THREE.PerspectiveCamera;
   readonly controls: OrbitControls;
+  /** Telefon albo tablet: mniej pikseli i mniejsza mapa cieni, zeby makieta szla plynnie. */
+  readonly lowPower: boolean;
   render(): void;
 }
 
@@ -27,7 +29,9 @@ export interface Stage {
  */
 export function createStage(canvas: HTMLCanvasElement): Stage {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  const lowPower = matchMedia("(pointer: coarse)").matches;
+  // ekran telefonu ma gestosc 3; przy 1,5 makieta jest ostra, a GPU liczy czterokrotnie mniej pikseli
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, lowPower ? 1.5 : 2));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 0.75;
   renderer.shadowMap.enabled = true;
@@ -41,7 +45,8 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
   else camera.position.set(-110, 240, 300);
 
   const controls = new OrbitControls(camera, canvas);
-  if (portrait) controls.target.set(35, 0, 25);
+  // cel blizej widza: makieta wjezdza wyzej i nie chowa sie pod notowaniami u dolu ekranu
+  if (portrait) controls.target.set(35, 0, 70);
   else controls.target.set(10, 0, -10);
   controls.enableDamping = true;
   controls.minDistance = 40;
@@ -73,6 +78,7 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
     scene,
     camera,
     controls,
+    lowPower,
     render: () => {
       controls.update();
       composer.render();
