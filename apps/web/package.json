@@ -13,6 +13,7 @@
     "mutation": "stryker run"
   },
   "dependencies": {
+    "@fontsource/ibm-plex-sans": "5.2.8",
     "@hossa/economy": "workspace:*",
     "@hossa/market": "workspace:*",
     "three": "0.186.1"

@@ -1,4 +1,5 @@
 import type { Bar } from "../sim/protocol.js";
+import { FONT } from "../fonts.js";
 import { labelledGrid, layoutChart } from "../world/chart.js";
 import { price } from "../world/format.js";
 
@@ -29,7 +30,7 @@ export function drawChart(canvas: HTMLCanvasElement, bars: readonly Bar[], fair:
 
   const plot = { width: width - AXIS, height: height - 16 };
   const l = layoutChart(bars, fair, plot, slots);
-  g.font = "11px 'Segoe UI', system-ui, sans-serif";
+  g.font = `11px ${FONT}`;
   g.textBaseline = "middle";
 
   const fy = Math.round(l.y(fair)) + 0.5;

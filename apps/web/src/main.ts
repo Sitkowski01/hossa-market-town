@@ -1,4 +1,5 @@
 import type { Ticker } from "@hossa/economy";
+import "./fonts.js";
 import type { FromWorker, Snapshot, ToWorker } from "./sim/protocol.js";
 import { dayFraction, extrapolate } from "./sim/clock.js";
 import { createDirector } from "./scene/director.js";

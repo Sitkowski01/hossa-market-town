@@ -42,6 +42,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@fontsource/ibm-plex-sans':
+        specifier: 5.2.8
+        version: 5.2.8
       '@hossa/economy':
         specifier: workspace:*
         version: link:../../packages/economy
@@ -432,6 +435,9 @@ packages:
   '@eslint/plugin-kit@0.7.3':
     resolution: {integrity: sha512-IkO+/KEUvwbVpiURZg+P7zF74z5Jxe0UgJxVni+RtoHQ6IZieXaO02kmadomap/q+l6bc/jdPGGqTjhuZnuz1Q==}
     engines: {node: ^20.19.0 || ^22.13.0 || >=24}
+
+  '@fontsource/ibm-plex-sans@5.2.8':
+    resolution: {integrity: sha512-eztSXjDhPhcpxNIiGTgMebdLP9qS4rWkysuE1V7c+DjOR0qiezaiDaTwQE7bTnG5HxAY/8M43XKDvs3cYq6ZYQ==}
 
   '@gltf-transform/core@4.5.1':
     resolution: {integrity: sha512-OWgBYssKHKoXMIrMb2N20jXqWRnMP9HdtcTFQBEAJtz4P+OOxx5fozl5eAeK7nktIs5uDE/lu4NbkE5VCZaR9g==}
@@ -2429,6 +2435,8 @@ snapshots:
     dependencies:
       '@eslint/core': 1.2.1
       levn: 0.4.1
+
+  '@fontsource/ibm-plex-sans@5.2.8': {}
 
   '@gltf-transform/core@4.5.1':
     dependencies:

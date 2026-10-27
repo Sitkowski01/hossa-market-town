@@ -2,6 +2,7 @@ import type { Ticker } from "@hossa/economy";
 import * as THREE from "three";
 import type { Snapshot } from "../sim/protocol.js";
 import { TICKERS } from "../world/companies.js";
+import { FONT } from "../fonts.js";
 import { change, price } from "../world/format.js";
 import { covered, fade, type Rect } from "../world/overlap.js";
 import { BLOOM_THRESHOLD } from "./stage.js";
@@ -55,6 +56,10 @@ export function createTickers(model: Model, scene: THREE.Scene): Tickers {
   led.material = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0xffffff, emissiveMap: ledTexture, emissiveIntensity: BLOOM_THRESHOLD * 0.9 });
   let ledText = "";
   let hovered: Ticker | null = null;
+  // tabliczki narysowane przed wczytaniem kroju maja czcionke zastepcza — po wczytaniu od nowa
+  void document.fonts.ready.then(() => {
+    for (const s of signs) s.text = "";
+  });
 
   return {
     signs: signs.map((s) => s.sprite),
@@ -98,14 +103,14 @@ export function createTickers(model: Model, scene: THREE.Scene): Tickers {
         g.fill();
         g.fillStyle = tone(pct);
         g.fillRect(4, 80, 248, 12);
-        g.font = "600 30px 'Segoe UI', sans-serif";
+        g.font = `600 30px ${FONT}`;
         g.fillStyle = "#e6edf6";
         g.fillText(s.ticker, 18, 40);
         g.fillStyle = tone(pct);
         g.textAlign = "right";
         g.fillText(change(pct), 238, 40);
         g.textAlign = "left";
-        g.font = "700 30px 'Segoe UI', sans-serif";
+        g.font = `700 30px ${FONT}`;
         g.fillStyle = "#e6edf6";
         g.fillText(price(c.price), 18, 72);
         s.texture.needsUpdate = true;
