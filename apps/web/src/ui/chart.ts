@@ -1,5 +1,5 @@
 import type { Bar } from "../sim/protocol.js";
-import { layoutChart } from "../world/chart.js";
+import { labelledGrid, layoutChart } from "../world/chart.js";
 import { price } from "../world/format.js";
 
 const COLORS = { up: "#2fbf71", down: "#e5484d", grid: "rgb(147 164 187 / 14%)", label: "#93a4bb", fair: "#e0b44c", last: "#e6edf6" };
@@ -32,12 +32,14 @@ export function drawChart(canvas: HTMLCanvasElement, bars: readonly Bar[], fair:
   g.font = "11px 'Segoe UI', system-ui, sans-serif";
   g.textBaseline = "middle";
 
-  for (const line of l.grid) {
-    g.fillStyle = COLORS.grid;
-    g.fillRect(0, Math.round(line.y), plot.width, 1);
-    // etykieta przy samej krawedzi bylaby ucieta w pol
-    if (line.y < 7 || line.y > plot.height - 7) continue;
-    g.fillStyle = COLORS.label;
+  const fy = Math.round(l.y(fair)) + 0.5;
+  const ly = l.y(last);
+  // wartosc godziwa ustepuje ostatniej cenie, gdy plakietki by na siebie zachodzily
+  const showFair = Math.abs(fy - ly) > 18;
+  g.fillStyle = COLORS.grid;
+  for (const line of l.grid) g.fillRect(0, Math.round(line.y), plot.width, 1);
+  g.fillStyle = COLORS.label;
+  for (const line of labelledGrid(l.grid, plot.height, showFair ? [ly, fy] : [ly])) {
     g.fillText(price(line.price).replace(" zł", ""), plot.width + 8, line.y);
   }
   for (const d of l.dayLines) {
@@ -53,7 +55,6 @@ export function drawChart(canvas: HTMLCanvasElement, bars: readonly Bar[], fair:
     g.fillRect(Math.round(c.x - l.candleWidth / 2), c.bodyTop, l.candleWidth, c.bodyHeight);
   }
 
-  const fy = Math.round(l.y(fair)) + 0.5;
   g.strokeStyle = COLORS.fair;
   g.setLineDash([4, 4]);
   g.beginPath();
@@ -62,8 +63,7 @@ export function drawChart(canvas: HTMLCanvasElement, bars: readonly Bar[], fair:
   g.stroke();
   g.setLineDash([]);
 
-  // ostatnia cena jako plakietka na osi; gdy zachodzi na wartosc godziwa, ta ustepuje
-  const ly = l.y(last);
+  // ostatnia cena jako plakietka na osi
   const tag = (y: number, text: string, bg: string, fg: string) => {
     g.fillStyle = bg;
     g.beginPath();
@@ -72,7 +72,7 @@ export function drawChart(canvas: HTMLCanvasElement, bars: readonly Bar[], fair:
     g.fillStyle = fg;
     g.fillText(text, plot.width + 7, y);
   };
-  if (Math.abs(fy - ly) > 18) tag(fy, price(fair).replace(" zł", ""), COLORS.fair, "#0b1220");
+  if (showFair) tag(fy, price(fair).replace(" zł", ""), COLORS.fair, "#0b1220");
   const lastBar = bars.at(-1);
   tag(ly, price(last).replace(" zł", ""), lastBar && lastBar.close < lastBar.open ? COLORS.down : COLORS.up, "#0b1220");
 }

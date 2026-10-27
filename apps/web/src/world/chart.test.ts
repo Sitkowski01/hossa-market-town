@@ -1,7 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import type { Bar } from "../sim/protocol.js";
-import { gridStep, layoutChart } from "./chart.js";
+import { TAG_CLEARANCE, gridStep, labelledGrid, layoutChart } from "./chart.js";
 
 const bar = (day: number, open: number, high: number, low: number, close: number): Bar => ({ day, open, high, low, close, volume: 1 });
 const box = { width: 600, height: 200 };
@@ -98,5 +98,23 @@ describe("layoutChart", () => {
         }
       }),
     );
+  });
+});
+
+describe("labelledGrid", () => {
+  const grid = [{ y: 3 }, { y: 40 }, { y: 80 }, { y: 120 }, { y: 196 }];
+
+  it("pomija podpisy przy samej krawedzi wykresu", () => {
+    expect(labelledGrid(grid, 200, [])).toEqual([{ y: 40 }, { y: 80 }, { y: 120 }]);
+    expect(labelledGrid([{ y: 7 }, { y: 193 }], 200, [])).toEqual([{ y: 7 }, { y: 193 }]);
+  });
+
+  it("pomija podpisy pod plakietkami ceny i wartosci godziwej", () => {
+    expect(labelledGrid(grid, 200, [44, 125])).toEqual([{ y: 80 }]);
+  });
+
+  it("podpis dokladnie TAG_CLEARANCE od plakietki zostaje", () => {
+    expect(labelledGrid([{ y: 50 }], 200, [50 + TAG_CLEARANCE])).toEqual([{ y: 50 }]);
+    expect(labelledGrid([{ y: 50 }], 200, [50 - TAG_CLEARANCE + 0.5])).toEqual([]);
   });
 });

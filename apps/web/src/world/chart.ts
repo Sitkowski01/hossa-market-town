@@ -83,3 +83,14 @@ export function layoutChart(bars: readonly Bar[], fair: number | null, box: Box,
   }
   return { candles, candleWidth, y, grid, dayLines };
 }
+
+/** Plakietka ceny ma 18 px wysokosci; podpis siatki blizej niz tyle zostalby nia przykryty. */
+export const TAG_CLEARANCE = 14;
+
+/**
+ * Linie siatki, ktorych podpis mozna narysowac: nie przy samej krawedzi (bylby uciety w pol)
+ * i nie pod plakietka ostatniej ceny ani wartosci godziwej (spod plakietki wystaja tylko kawalki cyfr).
+ */
+export function labelledGrid<T extends { readonly y: number }>(grid: readonly T[], plotHeight: number, tags: readonly number[]): T[] {
+  return grid.filter((line) => line.y >= 7 && line.y <= plotHeight - 7 && tags.every((t) => Math.abs(t - line.y) >= TAG_CLEARANCE));
+}
