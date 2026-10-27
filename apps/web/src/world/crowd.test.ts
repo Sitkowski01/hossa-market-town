@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { MAX_WALKERS, crowdSize, walked, walkers } from "./crowd.js";
+import { MAX_WALKERS, PLAZA_LOOPS, crowdSize, walked, walkers } from "./crowd.js";
 
 describe("crowdSize", () => {
   it("w nocy kilku spacerowiczow, w dzien przy pelnym popycie caly tlum", () => {
@@ -34,6 +34,54 @@ describe("crowdSize", () => {
         expect(crowdSize(hi, demand, storm)).toBeLessThanOrEqual(MAX_WALKERS);
       }),
     );
+  });
+});
+
+describe("PLAZA_LOOPS", () => {
+  it("kazda petla jest zamknieta i miesci sie na placu 40 x 36 m", () => {
+    expect(PLAZA_LOOPS).toHaveLength(3);
+    for (const loop of PLAZA_LOOPS) {
+      expect(loop.length).toBeGreaterThanOrEqual(20);
+      expect(loop.at(-1)).toEqual(loop[0]);
+      for (const [x, z] of loop) {
+        expect(Math.abs(x)).toBeLessThanOrEqual(20);
+        expect(Math.abs(z)).toBeLessThanOrEqual(18);
+      }
+    }
+  });
+
+  it("spacer wokol fontanny trzyma sie 8 m od srodka", () => {
+    for (const [x, z] of PLAZA_LOOPS[0] ?? []) expect(Math.hypot(x, z)).toBeCloseTo(8);
+  });
+
+  /** Pole objete petla (wzor shoelace) i jej zasieg — psuja sie od kazdego przestawionego rogu. */
+  const shape = (loop: readonly (readonly [number, number])[]) => {
+    let area = 0;
+    for (let i = 0; i < loop.length - 1; i++) {
+      const [x0, z0] = loop[i] as readonly [number, number];
+      const [x1, z1] = loop[i + 1] as readonly [number, number];
+      area += x0 * z1 - x1 * z0;
+    }
+    const xs = loop.map((p) => p[0]);
+    const zs = loop.map((p) => p[1]);
+    return { area: Math.abs(area / 2), x: [Math.min(...xs), Math.max(...xs)], z: [Math.min(...zs), Math.max(...zs)] };
+  };
+
+  it("alejka to prostokat 22 x 30 m z zaokraglonymi rogami", () => {
+    const { area, x, z } = shape(PLAZA_LOOPS[1] ?? []);
+    expect(area).toBeGreaterThan(640);
+    expect(area).toBeLessThan(660);
+    expect(x).toEqual([-11, 11]);
+    expect(z).toEqual([-15, 15]);
+  });
+
+  it("obchod siega drzwi Koszyka i banku (17 m w bok) i schodow gieldy (15 m na polnoc)", () => {
+    const { area, x, z } = shape(PLAZA_LOOPS[2] ?? []);
+    expect(area).toBeCloseTo(729.58, 1);
+    expect(x[0]).toBeCloseTo(-17.14, 1);
+    expect(x[1]).toBeCloseTo(17.14, 1);
+    expect(z[0]).toBeCloseTo(-15.39, 1);
+    expect(z[1]).toBeCloseTo(14, 1);
   });
 });
 
