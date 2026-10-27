@@ -127,6 +127,19 @@ def shop(layout, coll):
     for i in range(6):
         b.box((0.55, 0.9, 0.95), (8.5 - 0.35 * i, -9.6, 0), "stal")
     b.box((6.0, 0.5, 2.2), (0, -5.5, 7.0), "zielony_ksz")  # szyld na dachu nad wejsciem
+    # boki i zaplecze widac z ujecia startowego: cokol, zebra okladziny, pas swietlikow pod dachem
+    b.box((22.3, 14.3, 0.6), (0, 0, 0), "stal_ciemna", skip=("bottom", "top"))
+    for side in (-1, 1):
+        b.box((0.12, 11, 0.8), (side * 11.02, 0, 4.9), "szklo")
+        for y in range(-6, 7, 2):
+            b.box((0.2, 0.3, 5.9), (side * 11.05, y, 0.6), "stal")
+    for x in range(-10, 11, 2):
+        if not 1 <= x <= 7:  # bez zebra na bramie dostaw
+            b.box((0.3, 0.2, 5.9), (x, 7.05, 0.6), "stal")
+    b.box((7, 2.6, 0.25), (4, 8.3, 4.1), "stal_ciemna")  # daszek nad rampa
+    b.box((7, 2.0, 1.1), (4, 8.0, 0), "chodnik")  # rampa dostaw
+    for side in (-1, 1):  # zielona listwa attyki na bokach, jak pas nad witryna
+        b.box((0.1, 14.2, 0.5), (side * 11.15, 0, 6.5), "zielony_ksz")
     obj = b.done("KSZ", coll)
     kit.empty("KSZ_kurs", b.world((0, 0, 14)), coll)
     return obj
