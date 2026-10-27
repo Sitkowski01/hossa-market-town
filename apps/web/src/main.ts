@@ -12,6 +12,7 @@ import { createSmoke } from "./scene/smoke.js";
 import { createStage } from "./scene/stage.js";
 import { createTickers } from "./scene/tickers.js";
 import { createTrucks } from "./scene/trucks.js";
+import { createWalkers } from "./scene/walkers.js";
 import { createHud } from "./ui/hud.js";
 import { createNewsBar } from "./ui/news.js";
 import { createPanel } from "./ui/panel.js";
@@ -107,6 +108,7 @@ const trucks = createTrucks(model, stage.scene);
 const props = createProps(model, stage.scene);
 const tickers = createTickers(model, stage.scene);
 const pickets = createPickets(model, stage.scene);
+const walkers = createWalkers(model, stage.scene);
 const rain = createRain(stage.scene);
 director.useModel(model);
 onPick(canvas, createPicker(model, stage.camera, canvas, tickers.signs), (t) => {
@@ -138,6 +140,7 @@ function frame(now: number): void {
     props.update(snap, fraction, light, storm, simDt, now);
     tickers.update(snap, dt, stage.camera, { width: canvas.clientWidth, height: canvas.clientHeight });
     pickets.update(snap, now);
+    walkers.update(snap, light, storm, dt);
     rain.update(storm, dt);
     for (const c of chimneys) c.smoke.update(c.rate(snap), simDt, light.day);
     hud.update(snap, hour);
