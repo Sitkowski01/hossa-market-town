@@ -28,6 +28,12 @@ export function createQuotes(onPick: (ticker: Ticker, from: HTMLElement) => void
     return { ticker: t, button: b, price: b.children[1] as HTMLElement, change: b.children[2] as HTMLElement, text: "" };
   });
   document.body.append(nav);
+  // na telefonie lista przewija sie w bok: prawa krawedz gasnie, dopoki cos jeszcze jest za nia
+  const edge = () => {
+    nav.toggleAttribute("data-koniec", nav.scrollLeft + nav.clientWidth >= nav.scrollWidth - 2);
+  };
+  nav.addEventListener("scroll", edge, { passive: true });
+  new ResizeObserver(edge).observe(nav);
 
   return {
     update(snapshot, selected) {

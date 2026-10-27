@@ -32,6 +32,7 @@ export function createNewsBar(onPick: (ticker: Ticker, from: HTMLElement) => voi
           text.textContent = "Spokojnie — miasteczko pracuje, rynek czeka na wieści.";
           text.disabled = true;
           text.dataset.kierunek = "";
+          text.title = text.textContent;
         }
         return;
       }
@@ -41,7 +42,8 @@ export function createNewsBar(onPick: (ticker: Ticker, from: HTMLElement) => voi
       text.disabled = !target;
       text.textContent = `dz. ${String(n.day)} · ${n.text}`;
       text.dataset.kierunek = toneOf(n.tone);
-      text.title = target ? `Otwórz panel ${target}` : "";
+      // na waskim ekranie tekst jest uciety wielokropkiem — pelna tresc w podpowiedzi
+      text.title = target ? `${text.textContent} (otwórz panel ${target})` : text.textContent;
       // nowa wiadomosc wjezdza od dolu; kto wylaczyl animacje w systemie, widzi ja od razu
       if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
         text.animate([{ opacity: 0, transform: "translateY(8px)" }, { opacity: 1, transform: "none" }], { duration: 450, easing: "ease-out" });

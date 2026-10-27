@@ -328,8 +328,8 @@ body[data-panel] .wiadomosci {
 
 .panel-zamknij {
   flex: none;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border: 1px solid var(--krawedz);
   border-radius: 8px;
   background: transparent;
@@ -518,21 +518,33 @@ body[data-panel] .wiadomosci {
 @media (max-width: 720px) {
   .notowania {
     top: auto;
-    bottom: 64px;
+    bottom: 76px;
     left: 12px;
     right: 12px;
     display: flex;
     width: auto;
-    gap: 4px;
+    gap: 0;
     overflow-x: auto;
     scrollbar-width: none;
+    mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent);
   }
 
+  .notowania[data-koniec] {
+    mask-image: none;
+  }
+
+  /* cele pod kciuk: 44 px wysokosci */
+  .hud-tempo button,
+  .wiadomosci-tekst {
+    min-height: 44px;
+  }
+
+  /* szesc spolek miesci sie w 390 px; na wezszym ekranie lista przewija sie w bok */
   .notowania button {
-    flex: none;
+    flex: 1 0 56px;
     grid-template-columns: auto;
     gap: 0;
-    min-width: 76px;
+    padding: 4px 2px;
     min-height: 44px;
     text-align: center;
   }
