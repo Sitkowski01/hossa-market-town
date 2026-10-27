@@ -10,6 +10,7 @@ import { createRain } from "./scene/rain.js";
 import { createSky } from "./scene/sky.js";
 import { createSmoke } from "./scene/smoke.js";
 import { createStage } from "./scene/stage.js";
+import { installSzlifHook } from "./scene/szlif.js";
 import { createTickers } from "./scene/tickers.js";
 import { createTrucks } from "./scene/trucks.js";
 import { createWalkers } from "./scene/walkers.js";
@@ -111,6 +112,7 @@ const pickets = createPickets(model, stage.scene);
 const walkers = createWalkers(model, stage.scene);
 const rain = createRain(stage.scene);
 director.useModel(model);
+installSzlifHook(stage, model);
 onPick(canvas, createPicker(model, stage.camera, canvas, tickers.signs), (t) => {
   // klik w puste miejsce makiety zamyka panel
   select(t, canvas);
