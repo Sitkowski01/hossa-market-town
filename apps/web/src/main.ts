@@ -123,6 +123,8 @@ const chimneys = [
   { smoke: createSmoke(stage.scene, model.anchor("STW_dym_2"), stage.renderer.getPixelRatio()), rate: (s: Snapshot) => s.companies.STW.output },
   { smoke: createSmoke(stage.scene, model.anchor("MTK_dym"), stage.renderer.getPixelRatio()), rate: (s: Snapshot) => s.companies.MTK.output },
 ];
+// panele interfejsu nad makieta: tabliczki kursow pod nimi gasna
+const overlays = () => [...document.querySelectorAll(".hud, .notowania, .wiadomosci, .panel:not([hidden])")].map((e) => e.getBoundingClientRect());
 let previous = performance.now();
 function frame(now: number): void {
   requestAnimationFrame(frame);
@@ -140,7 +142,7 @@ function frame(now: number): void {
     sky.update(light, storm);
     trucks.update(snap, fraction);
     props.update(snap, fraction, light, storm, simDt, now);
-    tickers.update(snap, dt, stage.camera, { width: canvas.clientWidth, height: canvas.clientHeight });
+    tickers.update(snap, dt, stage.camera, { width: canvas.clientWidth, height: canvas.clientHeight }, overlays());
     pickets.update(snap, now);
     walkers.update(snap, light, storm, dt);
     rain.update(storm, dt);

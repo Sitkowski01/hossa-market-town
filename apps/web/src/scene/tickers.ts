@@ -2,6 +2,7 @@ import * as THREE from "three";
 import type { Snapshot } from "../sim/protocol.js";
 import { TICKERS } from "../world/companies.js";
 import { change, price } from "../world/format.js";
+import { covered, fade, type Rect } from "../world/overlap.js";
 import { BLOOM_THRESHOLD } from "./stage.js";
 import type { Model } from "./model.js";
 
@@ -13,7 +14,8 @@ const SIGN_PX = 130;
 export interface Tickers {
   /** Tabliczki nad spolkami — klikalne jak budynki (userData.ticker). */
   readonly signs: readonly THREE.Sprite[];
-  update(snapshot: Snapshot, dt: number, camera: THREE.PerspectiveCamera, viewport: { width: number; height: number }): void;
+  /** `panels` to prostokaty interfejsu na ekranie — tabliczka, ktora by pod nie weszla, gasnie. */
+  update(snapshot: Snapshot, dt: number, camera: THREE.PerspectiveCamera, viewport: { width: number; height: number }, panels: readonly Rect[]): void;
 }
 
 const tone = (pct: number): string => (pct > 0.0005 ? UP : pct < -0.0005 ? DOWN : FLAT);
@@ -52,14 +54,24 @@ export function createTickers(model: Model, scene: THREE.Scene): Tickers {
 
   return {
     signs: signs.map((s) => s.sprite),
-    update(snapshot, dt, camera, viewport) {
+    update(snapshot, dt, camera, viewport, panels) {
       // sprite bez perspektywy ma wielkosc w jednostkach wysokosci ekranu, podzielona przez
       // tan(fov/2); liczymy ja z szerokosci w pikselach, zeby tabliczka byla tak samo czytelna
       // na monitorze i na telefonie (najwyzej 24% szerokosci ekranu)
       const px = Math.min(SIGN_PX, viewport.width * 0.24);
       const size = ((2 * px) / viewport.height) * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
+      const at = new THREE.Vector3();
       for (const s of signs) {
         s.sprite.scale.set(size, size * 0.375, 1);
+        // gdzie tabliczka jest na ekranie: srodek z rzutu kamery, wymiary jak w skali wyzej
+        at.copy(s.sprite.position).project(camera);
+        const x = ((at.x + 1) / 2) * viewport.width;
+        const y = ((1 - at.y) / 2) * viewport.height;
+        const hidden = at.z > 1 || covered({ left: x - px / 2, right: x + px / 2, top: y - px * 0.1875, bottom: y + px * 0.1875 }, panels);
+        const material = s.sprite.material;
+        material.opacity = fade(material.opacity, hidden ? 0 : 1, dt);
+        // niewidoczna tabliczka nie przechwytuje klikniec przeznaczonych dla panelu
+        s.sprite.visible = material.opacity > 0.01;
         const c = snapshot.companies[s.ticker];
         const pct = c.price / c.open - 1;
         const text = `${s.ticker}|${price(c.price)}|${change(pct)}`;
