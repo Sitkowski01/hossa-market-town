@@ -5,7 +5,7 @@ import type { Daylight } from "../world/daylight.js";
 const SUN_DISTANCE = 400;
 const ENV_EVERY_MS = 1000;
 const DAY_SUN = 3.2;
-const NIGHT_BLUE = new THREE.Color(0x0b1424);
+const NIGHT_BLUE = new THREE.Color(0x13213a);
 const FOG_DAY = new THREE.Color(0xb8c7d6);
 const FOG_STORM = new THREE.Color(0x56606b);
 
@@ -28,7 +28,8 @@ function configure(sky: Sky, sun: THREE.Vector3, storm: boolean): void {
  * pochodzi z fizycznego nieba (Sky), przeliczanego do mapy otoczenia tylko wtedy, gdy slonce
  * przesunie sie zauwazalnie — i z ograniczona sila, zeby jasne tynki sie nie przepalaly.
  * Samego nieba nie widac: jest o rzedy wielkosci jasniejsze niz makieta i rozlewaloby sie
- * w poswiacie. Tlo ma kolor mgly, jak makieta na stole w pokoju.
+ * w poswiacie. Tlo to studyjna winieta w kolorze mgly: jasniej za makieta, ciemniej przy brzegach
+ * ekranu — jak makieta sfotografowana na stole.
  */
 export function createSky(renderer: THREE.WebGLRenderer, scene: THREE.Scene): SkyLight {
 
@@ -48,6 +49,8 @@ export function createSky(renderer: THREE.WebGLRenderer, scene: THREE.Scene): Sk
   scene.add(sky, moon);
   const fog = new THREE.Fog(FOG_DAY, 500, 1500);
   scene.fog = fog;
+  const backdrop = createBackdrop();
+  scene.background = backdrop.texture;
 
   const pmrem = new THREE.PMREMGenerator(renderer);
   const envScene = new THREE.Scene();
@@ -61,15 +64,15 @@ export function createSky(renderer: THREE.WebGLRenderer, scene: THREE.Scene): Sk
       const dir = new THREE.Vector3(...light.sun);
 
       sun.position.copy(dir).multiplyScalar(SUN_DISTANCE);
-      sun.intensity = DAY_SUN * light.day * (storm ? 0.35 : 1);
+      sun.intensity = DAY_SUN * light.day * (storm ? 0.2 : 1);
       sun.visible = light.elevation > -2;
       sky.intensity = 0.25 + 1.1 * (1 - light.day);
-      moon.intensity = 0.7 * (1 - light.day);
+      moon.intensity = 1.2 * (1 - light.day);
 
       fog.color.copy(FOG_DAY).lerp(FOG_STORM, storm ? 1 : 0).lerp(NIGHT_BLUE, 1 - light.day);
       fog.near = storm ? 120 : 500;
       fog.far = storm ? 700 : 1500;
-      scene.background = fog.color;
+      backdrop.paint(fog.color);
 
       // mapa otoczenia: przeliczana, gdy slonce przesunie sie o ~2° albo zmieni sie pogoda, ale
       // najwyzej raz na sekunde — przy 16× slonce rusza sie o 2° w kazdej klatce
@@ -82,6 +85,39 @@ export function createSky(renderer: THREE.WebGLRenderer, scene: THREE.Scene): Sk
         scene.environment = env.target.texture;
       }
       scene.environmentIntensity = 0.1 + 0.25 * light.day * (storm ? 0.6 : 1);
+    },
+  };
+}
+
+/** Tlo ekranu: gradient promienisty z kolorow mgly, odmalowywany tylko przy zmianie koloru. */
+function createBackdrop(): { texture: THREE.CanvasTexture; paint(colour: THREE.Color): void } {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 256;
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  const g = canvas.getContext("2d") as CanvasRenderingContext2D;
+  const light = new THREE.Color();
+  const dark = new THREE.Color();
+  const black = new THREE.Color(0x000000);
+  const white = new THREE.Color(0xffffff);
+  let painted = "";
+  return {
+    texture,
+    paint(colour) {
+      const key = colour.getHexString();
+      if (key === painted) return;
+      painted = key;
+      light.copy(colour).lerp(white, 0.1);
+      dark.copy(colour).lerp(black, 0.22);
+      // srodek nieco nad srodkiem ekranu — tam zwykle stoi makieta
+      const grad = g.createRadialGradient(128, 100, 10, 128, 100, 200);
+      grad.addColorStop(0, `#${light.getHexString(THREE.SRGBColorSpace)}`);
+      grad.addColorStop(0.55, `#${colour.getHexString(THREE.SRGBColorSpace)}`);
+      grad.addColorStop(1, `#${dark.getHexString(THREE.SRGBColorSpace)}`);
+      g.fillStyle = grad;
+      g.fillRect(0, 0, 256, 256);
+      texture.needsUpdate = true;
     },
   };
 }
