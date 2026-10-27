@@ -35,6 +35,14 @@ export function createProps(model: Model, scene: THREE.Scene): Props {
     portMachines: model.node("BPT_maszyny"),
   };
 
+  // biala farba z albedo 0,78 w pelnym sloncu przekracza prog poswiaty (sciana statku robila sie
+  // biala plama); po ACES albedo ~0,5 dalej wyglada na biale
+  const whites = new Set<THREE.MeshStandardMaterial>();
+  model.root.traverse((o) => {
+    if (o instanceof THREE.Mesh && (o.material as THREE.Material).name === "bialy") whites.add(o.material as THREE.MeshStandardMaterial);
+  });
+  for (const m of whites) m.color.multiplyScalar(0.65);
+
   const lamp = model.material("lampa");
   lamp.emissive.copy(LAMP);
   const windows = model.material("okna");
