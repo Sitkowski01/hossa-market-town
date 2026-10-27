@@ -6,11 +6,7 @@ w centrum. Kursy nie są losowane: powstają w prawdziwym arkuszu zleceń, w kt�
 inwestorów reagują na to, co dzieje się na makiecie (strajk, sztorm, wyniki kwartalne,
 decyzja banku centralnego).
 
-> Projekt w budowie. Gotowe są silnik giełdy, gospodarka miasteczka, rynek z botami,
-> makieta 3D z Blendera i żywa scena w przeglądarce. Panel spółki z wykresem i arkuszem
-> zleceń powstaje w kolejnym etapie.
-
-![Makieta w przeglądarce](docs/scena.jpg)
+![Wczytanie makiety, przelot kamery i panel kopalni w dniu strajku](docs/hossa.gif)
 
 ```
 packages/engine    arkusz zleceń (port Parkietu)          zero zależności
@@ -21,6 +17,34 @@ apps/web           scena three.js + giełda w Web Workerze   market (tylko w wor
 blender/           makieta 3D budowana skryptami Pythona    Blender 5.1
 tools/model        optymalizacja GLB + testy kontraktu      gltf-transform
 ```
+
+## Architektura
+
+```mermaid
+flowchart LR
+  subgraph worker[Web Worker]
+    eco[economy<br/>firmy, łańcuch dostaw,<br/>zdarzenia, wycena]
+    mkt[market<br/>6 arkuszy + boty]
+    eng[engine<br/>arkusz zleceń<br/>port Parkietu]
+    eco -- wieści, wartość godziwa --> mkt
+    mkt --> eng
+  end
+  subgraph page[Strona]
+    sim[src/sim<br/>zegar, migawki]
+    world[src/world<br/>czysta logika:<br/>trasy, tłum, wykres, kamera]
+    scene[src/scene<br/>three.js]
+    ui[src/ui<br/>panel, notowania, wieści]
+  end
+  blender[blender/<br/>skrypty Pythona] -- GLB --> model[tools/model<br/>WebP, meshopt] -- makieta.glb --> scene
+  worker -- migawka co 100 ms --> sim
+  sim --> scene & ui
+  world --> scene & ui
+  ui -- tempo, otwarta spółka --> worker
+```
+
+Granice pilnuje dependency-cruiser: tylko `src/sim` importuje rynek, z gospodarki scena bierze
+wyłącznie typy, a `src/world` nie zna ani three.js, ani DOM-u — dlatego cała logika sceny ma
+testy jednostkowe i mutacyjne.
 
 ## Gospodarka miasteczka (`packages/economy`)
 
@@ -116,7 +140,8 @@ Makieta nie jest klikana ręcznie w Blenderze. Powstaje w całości ze skryptów
   zakładów (ciężarówki).
 - Drzewa, latarnie i auta trafiają do GLB jako kilka wzorców plus lista pozycji
   w `makieta.json`. Przeglądarka rysuje je instancjami.
-- `tools/model` odchudza GLB z ~34 MB do ~6 MB: tekstury WebP, siatki skwantyzowane
+- `tools/model` odchudza GLB z ~35 MB do ~6,8 MB: tekstury WebP (kolory materiałów 768 px),
+  wzorce drzew uproszczone meshoptimizerem (stoją w ~580 kopiach), siatki skwantyzowane
   i skompresowane meshopt.
 
 Testy kontraktu (`tools/model`) sprawdzają gotową paczkę:
@@ -131,13 +156,15 @@ Pierwsze uruchomienie tych testów złapało hutę obróconą tyłem do drogi: j
 56 m od trasy ciężarówek.
 
 ```bash
-# w konsoli Pythona Blendera (5.1): buduje makietę i eksportuje surowy GLB
-p = r"<repo>/blender/run.py"; exec(compile(open(p, encoding="utf-8").read(), p, "exec"), {"__file__": p})
+# Blender 5.1 bez okna (~30 s): buduje makietę i eksportuje surowy GLB
+blender -b --factory-startup --python-expr "p = r'<repo>/blender/run.py'; exec(compile(open(p, encoding='utf-8').read(), p, 'exec'), {'__file__': p})"
 # w repo: optymalizacja do apps/web/public/makieta.glb
 pnpm model
 ```
 
 ## Scena w przeglądarce (`apps/web`)
+
+![Makieta w przeglądarce](docs/scena.jpg)
 
 Giełda i gospodarka liczą się w Web Workerze, więc boty składające zlecenia nie przycinają
 rysowania. Co 100 ms worker wysyła scenie migawkę: ceny, dzisiejsze wysyłki, zapełnienie
@@ -153,7 +180,10 @@ Na makiecie widać to, co dzieje się w gospodarce:
 - statek odpływa po załadunku, a w sztorm czeka na redzie; pada deszcz, błyska latarnia,
 - w strajku zakład naprawdę stoi (zero produkcji, brak dymu), a przed bramą stoi pikieta,
 - nad spółkami tabliczki z kursem, a na fasadzie giełdy przewija się pas notowań,
-- jeden dzień gospodarki to doba na makiecie: słońce, noc z oknami i latarniami.
+- na rynku spacerują przechodnie: w dzień tłum, w nocy kilku spacerowiczów, w sztorm prawie
+  nikt; za dnia ich liczba idzie za popytem w Sieci Koszyk,
+- jeden dzień gospodarki to doba na makiecie: słońce, noc z oknami i latarniami, a tło za
+  makietą to studyjna winieta w kolorze nieba danej pory i pogody.
 
 Czas płynie w tempie 1×, 4× albo 16×; między migawkami scena ekstrapoluje go, żeby
 ciężarówki jechały płynnie, ale nie wchodzi w dzień, którego worker jeszcze nie policzył.
@@ -174,7 +204,18 @@ Worker liczy te szczegóły tylko dla otwartej spółki (wiadomość `focus`), w
 nic nie kosztuje. UI niczego nie liczy: formatowanie i układ wykresu to czyste funkcje
 w `src/world` (testy i mutacje), a DOM jest aktualizowany w miejscu — te same węzły, zmienia się
 tylko tekst, więc 10 migawek na sekundę nie gubi zaznaczenia ani miejsca czytnika ekranu.
-Na telefonie panel wysuwa się od dołu, a tablica notowań przewija się w poziomie.
+Na telefonie panel wysuwa się od dołu, a tablica notowań mieści wszystkie sześć spółek pod kciukiem.
+
+**Pierwsze 10 sekund.** Makieta waży ~6,8 MB, więc ekran ładowania pokazuje postęp pobierania
+(albo pasek nieokreślony, gdy serwer nie poda rozmiaru), a shadery kompilują się jeszcze pod
+zasłoną. Potem kamera przelatuje do ujęcia startowego i makieta obraca się do widza
+(pomijane przy `prefers-reduced-motion`). Najechanie na budynek albo tabliczkę podświetla
+wiersz spółki w notowaniach, a najechanie na wiersz powiększa tabliczkę na makiecie.
+Tabliczki gasną, gdy wchodzą pod panel albo za krawędź ekranu.
+
+**Wydajność.** ~600 tys. trójkątów i ~460 wywołań rysowania na klatkę (razem z mapą cieni);
+60 kl./s na komputerze, ~50 kl./s przy procesorze spowolnionym 4×. Na ekranach dotykowych
+gęstość pikseli najwyżej 1,5 i mapa cieni 2048 px zamiast 4096.
 
 Adres strony odtwarza sesję: `?seed=42` (ta sama sesja co do transakcji), `?tempo=16`,
 `?godzina=12` (zatrzymana pora dnia), `?kamera=x,y,z,celX,celY,celZ` i `?spolka=RUD`
@@ -187,7 +228,7 @@ robi zrzut w południe i w nocy i liczy przepalone piksele.
 
 | Test | Co sprawdza |
 |---|---|
-| jednostkowe + fast-check | trasy (łuki, prawy pas, brak skoków), kolumny ciężarówek, faza statku bez przeskoków między dniami, pora dnia, migawka z prawdziwej sesji (strajk, sztorm, wypadek), szczegóły spółki (świece, arkusz, taśma, fundamenty, wiadomości), układ wykresu (każda świeca mieści się w polu), przelot kamery, parametry adresu |
+| jednostkowe + fast-check | trasy (łuki, prawy pas, brak skoków), kolumny ciężarówek, faza statku bez przeskoków między dniami, pora dnia, migawka z prawdziwej sesji (strajk, sztorm, wypadek), szczegóły spółki (świece, arkusz, taśma, fundamenty, wiadomości), układ wykresu (każda świeca mieści się w polu), przelot kamery i przelot powitalny, tłum na rynku (liczba, pętle spacerów), gaszenie tabliczek pod panelami, podpisy osi pod plakietkami, parametry adresu |
 | mutacyjne (Stryker) | logika `src/sim` i `src/world`, próg 90% |
 | e2e (Playwright) | scena bez błędów konsoli, tempo i pauza, to samo ziarno = ten sam indeks, ekspozycja w dzień i w nocy, panel z notowania, z kliknięcia w budynek i z adresu (strajk), Escape i powrót fokusu, pasek wiadomości, panel od dołu na telefonie |
 
