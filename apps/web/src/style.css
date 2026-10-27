@@ -235,8 +235,13 @@ button:focus-visible {
   cursor: pointer;
 }
 
-.notowania button:hover {
+.notowania button:hover,
+.notowania button[data-podswietlona] {
   background: rgb(147 164 187 / 10%);
+}
+
+.notowania button {
+  transition: background-color 0.15s;
 }
 
 .notowania button[aria-pressed="true"] {

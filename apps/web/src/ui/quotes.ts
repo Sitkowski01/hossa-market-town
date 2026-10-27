@@ -6,13 +6,15 @@ import { setPressed } from "./dom.js";
 
 export interface Quotes {
   update(snapshot: Snapshot, selected: Ticker | null): void;
+  /** Wiersz spolki, nad ktorej budynkiem albo tabliczka jest kursor. */
+  highlight(ticker: Ticker | null): void;
 }
 
 /**
  * Tablica notowan: szesc spolek z kursem i zmiana od otwarcia. Kazda pozycja to przycisk —
  * otwiera panel spolki bez celowania w budynek, takze z klawiatury i na malym ekranie.
  */
-export function createQuotes(onPick: (ticker: Ticker, from: HTMLElement) => void): Quotes {
+export function createQuotes(onPick: (ticker: Ticker, from: HTMLElement) => void, onHover: (ticker: Ticker | null) => void = () => undefined): Quotes {
   const nav = document.createElement("nav");
   nav.className = "notowania";
   nav.setAttribute("aria-label", "Notowania spółek");
@@ -23,6 +25,12 @@ export function createQuotes(onPick: (ticker: Ticker, from: HTMLElement) => void
     b.innerHTML = `<span class="notowanie-ticker">${t}</span><span class="notowanie-cena"></span><span class="notowanie-zmiana"></span>`;
     b.addEventListener("click", () => {
       onPick(t, b);
+    });
+    b.addEventListener("pointerenter", (e) => {
+      if (e.pointerType === "mouse") onHover(t);
+    });
+    b.addEventListener("pointerleave", () => {
+      onHover(null);
     });
     nav.append(b);
     return { ticker: t, button: b, price: b.children[1] as HTMLElement, change: b.children[2] as HTMLElement, text: "" };
@@ -36,6 +44,9 @@ export function createQuotes(onPick: (ticker: Ticker, from: HTMLElement) => void
   new ResizeObserver(edge).observe(nav);
 
   return {
+    highlight(ticker) {
+      for (const r of rows) r.button.toggleAttribute("data-podswietlona", r.ticker === ticker);
+    },
     update(snapshot, selected) {
       for (const r of rows) {
         const c = snapshot.companies[r.ticker];

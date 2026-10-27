@@ -47,9 +47,10 @@ export function createPicker(model: Model, camera: THREE.Camera, canvas: HTMLCan
 /**
  * Klikniecie w makiete, ale nie koniec obracania: pointerdown i pointerup blisko siebie, jednym
  * palcem (gest dwoma palcami to przyblizanie, nawet gdy palce prawie sie nie ruszyly).
- * Kursor nad spolka zmienia sie w raczke (tylko mysz — na dotyku nie ma najechania).
+ * Kursor nad spolka zmienia sie w raczke, a `hover` dostaje spolke pod kursorem (tylko mysz —
+ * na dotyku nie ma najechania).
  */
-export function onPick(canvas: HTMLCanvasElement, picker: Picker, pick: (ticker: Ticker | null) => void): void {
+export function onPick(canvas: HTMLCanvasElement, picker: Picker, pick: (ticker: Ticker | null) => void, hover: (ticker: Ticker | null) => void = () => undefined): void {
   let down: { x: number; y: number } | null = null;
   const pointers = new Set<number>();
   canvas.addEventListener("pointerdown", (e) => {
@@ -75,7 +76,12 @@ export function onPick(canvas: HTMLCanvasElement, picker: Picker, pick: (ticker:
     pending = true;
     requestAnimationFrame(() => {
       pending = false;
-      canvas.style.cursor = picker.at(e.clientX, e.clientY) ? "pointer" : "";
+      const t = picker.at(e.clientX, e.clientY);
+      canvas.style.cursor = t ? "pointer" : "";
+      hover(t);
     });
+  });
+  canvas.addEventListener("pointerleave", () => {
+    hover(null);
   });
 }

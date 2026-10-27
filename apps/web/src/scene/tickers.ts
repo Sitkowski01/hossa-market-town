@@ -1,3 +1,4 @@
+import type { Ticker } from "@hossa/economy";
 import * as THREE from "three";
 import type { Snapshot } from "../sim/protocol.js";
 import { TICKERS } from "../world/companies.js";
@@ -16,6 +17,8 @@ export interface Tickers {
   readonly signs: readonly THREE.Sprite[];
   /** `panels` to prostokaty interfejsu na ekranie — tabliczka, ktora by pod nie weszla, gasnie. */
   update(snapshot: Snapshot, dt: number, camera: THREE.PerspectiveCamera, viewport: { width: number; height: number }, panels: readonly Rect[]): void;
+  /** Tabliczka spolki pod kursorem (na makiecie albo w notowaniach) rosnie i wychodzi na wierzch. */
+  highlight(ticker: Ticker | null): void;
 }
 
 const tone = (pct: number): string => (pct > 0.0005 ? UP : pct < -0.0005 ? DOWN : FLAT);
@@ -38,7 +41,7 @@ export function createTickers(model: Model, scene: THREE.Scene): Tickers {
     sprite.userData = { ticker: t };
     sprite.position.copy(model.anchor(`${t}_kurs`)).add(new THREE.Vector3(0, 4, 0));
     scene.add(sprite);
-    return { ticker: t, sprite, canvas, texture, text: "" };
+    return { ticker: t, sprite, canvas, texture, text: "", grow: 1 };
   });
 
   const led = model.node("GIELDA_led") as THREE.Mesh;
@@ -51,9 +54,13 @@ export function createTickers(model: Model, scene: THREE.Scene): Tickers {
   ledTexture.flipY = false; // UV z glTF maja poczatek u gory, canvas tez — bez odwracania
   led.material = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0xffffff, emissiveMap: ledTexture, emissiveIntensity: BLOOM_THRESHOLD * 0.9 });
   let ledText = "";
+  let hovered: Ticker | null = null;
 
   return {
     signs: signs.map((s) => s.sprite),
+    highlight(ticker) {
+      hovered = ticker;
+    },
     update(snapshot, dt, camera, viewport, panels) {
       // sprite bez perspektywy ma wielkosc w jednostkach wysokosci ekranu, podzielona przez
       // tan(fov/2); liczymy ja z szerokosci w pikselach, zeby tabliczka byla tak samo czytelna
@@ -62,7 +69,10 @@ export function createTickers(model: Model, scene: THREE.Scene): Tickers {
       const size = ((2 * px) / viewport.height) * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
       const at = new THREE.Vector3();
       for (const s of signs) {
-        s.sprite.scale.set(size, size * 0.375, 1);
+        // wyroznienie rosnie i maleje plynnie (ok. 0,15 s), wyrozniona tabliczka jest nad innymi
+        s.grow += ((s.ticker === hovered ? 1.18 : 1) - s.grow) * Math.min(1, dt * 14);
+        s.sprite.renderOrder = s.ticker === hovered ? 11 : 10;
+        s.sprite.scale.set(size * s.grow, size * 0.375 * s.grow, 1);
         // gdzie tabliczka jest na ekranie: srodek z rzutu kamery, wymiary jak w skali wyzej
         at.copy(s.sprite.position).project(camera);
         const x = ((at.x + 1) / 2) * viewport.width;

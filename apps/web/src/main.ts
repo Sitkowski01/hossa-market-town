@@ -70,7 +70,11 @@ const select = (ticker: Ticker | null, from: HTMLElement | null = null) => {
 const panel = createPanel(() => {
   select(null);
 });
-const quotes = createQuotes(select);
+// najechanie na budynek, tabliczke albo wiersz notowan wyroznia te sama spolke w obu miejscach
+let hoverTicker: (ticker: Ticker | null) => void = () => undefined;
+const quotes = createQuotes(select, (t) => {
+  hoverTicker(t);
+});
 const newsBar = createNewsBar(select);
 // panel zaslania prawa strone (komputer) albo dol ekranu (telefon) — scena przesuwa obraz o tyle
 const fitInset = () => {
@@ -127,10 +131,19 @@ director.useModel(model);
 installSzlifHook(stage, model);
 // przelot powitalny: makieta obraca sie do widza; nie, gdy adres ustawia kamere albo spolke
 if (!view && !company && !matchMedia("(prefers-reduced-motion: reduce)").matches) director.intro();
-onPick(canvas, createPicker(model, stage.camera, canvas, tickers.signs), (t) => {
-  // klik w puste miejsce makiety zamyka panel
-  select(t, canvas);
-});
+hoverTicker = (t) => {
+  tickers.highlight(t);
+  quotes.highlight(t);
+};
+onPick(
+  canvas,
+  createPicker(model, stage.camera, canvas, tickers.signs),
+  (t) => {
+    // klik w puste miejsce makiety zamyka panel
+    select(t, canvas);
+  },
+  hoverTicker,
+);
 if (company) select(company);
 const chimneys = [
   { smoke: createSmoke(stage.scene, model.anchor("STW_dym_1"), stage.renderer.getPixelRatio()), rate: (s: Snapshot) => s.companies.STW.output },
