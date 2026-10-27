@@ -104,12 +104,16 @@ function createBackdrop(): { texture: THREE.CanvasTexture; paint(colour: THREE.C
   const black = new THREE.Color(0x000000);
   const white = new THREE.Color(0xffffff);
   let painted = "";
+  let paintedAt = -Infinity;
   return {
     texture,
     paint(colour) {
       const key = colour.getHexString();
-      if (key === painted) return;
+      // o swicie i zmierzchu kolor zmienia sie co klatke; gradient i wgranie tekstury najwyzej 4 razy na sekunde
+      const now = performance.now();
+      if (key === painted || now - paintedAt < 250) return;
       painted = key;
+      paintedAt = now;
       light.copy(colour).lerp(white, 0.1);
       dark.copy(colour).lerp(black, 0.22);
       // srodek nieco nad srodkiem ekranu — tam zwykle stoi makieta

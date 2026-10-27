@@ -18,6 +18,8 @@ export interface Stage {
   readonly controls: OrbitControls;
   /** Telefon albo tablet: mniej pikseli i mniejsza mapa cieni, zeby makieta szla plynnie. */
   readonly lowPower: boolean;
+  /** Ujecie startowe (inne w pionie i w poziomie) — przelot powitalny i petla szlifu wracaja do niego. */
+  readonly start: { readonly position: THREE.Vector3; readonly target: THREE.Vector3 };
   render(): void;
 }
 
@@ -48,6 +50,7 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
   // cel blizej widza: makieta wjezdza wyzej i nie chowa sie pod notowaniami u dolu ekranu
   if (portrait) controls.target.set(35, 0, 70);
   else controls.target.set(10, 0, -10);
+  const start = { position: camera.position.clone(), target: controls.target.clone() };
   controls.enableDamping = true;
   controls.minDistance = 40;
   controls.maxDistance = 520;
@@ -79,6 +82,7 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
     camera,
     controls,
     lowPower,
+    start,
     render: () => {
       controls.update();
       composer.render();

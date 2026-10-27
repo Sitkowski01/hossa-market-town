@@ -71,17 +71,23 @@ export function onPick(canvas: HTMLCanvasElement, picker: Picker, pick: (ticker:
     if (pointers.size === 0) down = null;
   });
   let pending = false;
+  // kursor juz poza makieta: sprawdzenie zamowione na nastepna klatke nie moze podswietlic
+  // budynku, nad ktorym byl wczesniej (np. gdy przeszedl prosto na wiersz notowan)
+  let inside = false;
   canvas.addEventListener("pointermove", (e) => {
+    inside = true;
     if (e.pointerType !== "mouse" || e.buttons !== 0 || pending) return;
     pending = true;
     requestAnimationFrame(() => {
       pending = false;
+      if (!inside) return;
       const t = picker.at(e.clientX, e.clientY);
       canvas.style.cursor = t ? "pointer" : "";
       hover(t);
     });
   });
   canvas.addEventListener("pointerleave", () => {
+    inside = false;
     hover(null);
   });
 }

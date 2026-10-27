@@ -27,7 +27,8 @@ const ROAD_HEIGHT = 0.06; // latarnie i auta stoja na plaskich ulicach miasta
 export async function loadModel(base: string, onProgress?: (fraction: number | null) => void): Promise<Model> {
   const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
   const [gltf, instances] = await Promise.all([
-    loader.loadAsync(`${base}makieta.glb`, (e) => onProgress?.(e.lengthComputable && e.total > 0 ? e.loaded / e.total : null)),
+    loader.loadAsync(`${base}makieta.glb`, // przy kompresji (gzip, brotli) Content-Length to rozmiar spakowany, a loaded — rozpakowany
+    (e) => onProgress?.(e.lengthComputable && e.total > 0 ? Math.min(1, e.loaded / e.total) : null)),
     fetch(`${base}makieta.json`).then((r) => r.json() as Promise<Instances>),
   ]);
   const root = gltf.scene;

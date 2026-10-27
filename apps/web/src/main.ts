@@ -130,8 +130,10 @@ const walkers = createWalkers(model, stage.scene);
 const rain = createRain(stage.scene);
 director.useModel(model);
 installSzlifHook(stage, model);
-// przelot powitalny: makieta obraca sie do widza; nie, gdy adres ustawia kamere albo spolke
-if (!view && !company && !matchMedia("(prefers-reduced-motion: reduce)").matches) director.intro();
+// przelot powitalny: makieta obraca sie do widza; nie, gdy adres ustawia kamere albo spolke,
+// ani przy ?szlif — petla szlifu sama ustawia kamere, a przelot by ja nadpisywal
+const szlif = new URLSearchParams(location.search).has("szlif");
+if (!view && !company && !szlif && !matchMedia("(prefers-reduced-motion: reduce)").matches) director.intro();
 hoverTicker = (t) => {
   tickers.highlight(t);
   quotes.highlight(t);
@@ -152,7 +154,16 @@ const chimneys = [
   { smoke: createSmoke(stage.scene, model.anchor("MTK_dym"), stage.renderer.getPixelRatio()), rate: (s: Snapshot) => s.companies.MTK.output },
 ];
 // panele interfejsu nad makieta: tabliczki kursow pod nimi gasna
-const overlays = () => [...document.querySelectorAll(".hud, .notowania, .wiadomosci, .panel:not([hidden])")].map((e) => e.getBoundingClientRect());
+// czytane najwyzej co 100 ms: odczyt ukladu w kazdej klatce kosztuje, a panele ruszaja sie rzadko
+let overlayRects: DOMRect[] = [];
+let overlaysAt = -Infinity;
+const overlays = (now: number) => {
+  if (now - overlaysAt >= 100) {
+    overlaysAt = now;
+    overlayRects = [...document.querySelectorAll(".hud, .notowania, .wiadomosci, .panel:not([hidden])")].map((e) => e.getBoundingClientRect());
+  }
+  return overlayRects;
+};
 let previous = performance.now();
 function frame(now: number): void {
   requestAnimationFrame(frame);
@@ -170,7 +181,7 @@ function frame(now: number): void {
     sky.update(light, storm);
     trucks.update(snap, fraction);
     props.update(snap, fraction, light, storm, simDt, now);
-    tickers.update(snap, dt, stage.camera, { width: canvas.clientWidth, height: canvas.clientHeight }, overlays());
+    tickers.update(snap, dt, stage.camera, { width: canvas.clientWidth, height: canvas.clientHeight }, overlays(now));
     pickets.update(snap, now);
     walkers.update(snap, light, storm, dt);
     rain.update(storm, dt);
@@ -180,8 +191,20 @@ function frame(now: number): void {
   director.update(now);
   stage.render();
 }
-// shadery kompiluja sie jeszcze pod ekranem ladowania, a nie w pierwszej klatce makiety
+// shadery kompiluja sie jeszcze pod ekranem ladowania, a nie w pierwszej klatce makiety: ze
+// swiatlem tej pory dnia (w nocy slonce jest wylaczone, a liczba swiatel zmienia shadery)
+// i ze schowanymi obiektami (przechodnie w kurtkach, ciezarowki, pikiety) — compileAsync
+// pomija niewidoczne
+const firstHour = fixedHour ?? (latest ? hourOf(dayFraction(latest.time, latest.stepsPerDay)) : hourOf(0));
+sky.update(daylight(firstHour), false);
+const hidden: { visible: boolean }[] = [];
+stage.scene.traverse((o) => {
+  if (o.visible) return;
+  hidden.push(o);
+  o.visible = true;
+});
 await stage.renderer.compileAsync(stage.scene, stage.camera);
+for (const o of hidden) o.visible = false;
 requestAnimationFrame(frame);
 
 loading?.classList.add("gotowe");

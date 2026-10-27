@@ -44,13 +44,13 @@ export function createDirector(stage: Stage): Director {
   };
   const now = (): Pose => ({ position: vec(camera.position), target: vec(controls.target) });
 
-  let flight: { from: Pose; to: Pose; elapsed: number; prev: number; duration: number } | null = null;
+  let flight: { from: Pose; to: Pose; elapsed: number; prev: number; duration: number; intro: boolean } | null = null;
   let home: Pose | null = null;
   // ujecie domowe znika dopiero po wyladowaniu: panel otwarty w trakcie powrotu nie zapamieta
   // jako domu punktu w polowie drogi
   let returning = false;
-  const fly = (to: Pose, from = now(), duration = FLIGHT_MS) => {
-    flight = { from, to, elapsed: 0, prev: -1, duration };
+  const fly = (to: Pose, from = now(), duration = FLIGHT_MS, intro = false) => {
+    flight = { from, to, elapsed: 0, prev: -1, duration, intro };
     controls.enabled = false;
   };
 
@@ -62,7 +62,7 @@ export function createDirector(stage: Stage): Director {
   const go = (ticker: Ticker, m: Model) => {
     returning = false;
     // w trakcie przelotu powitalnego domem jest jego cel, nie punkt w polowie drogi
-    home ??= flight?.duration === INTRO_MS ? flight.to : now();
+    home ??= flight?.intro ? flight.to : now();
     const { center, distance } = frame(ticker, m);
     fly(focusPose(now(), center, distance));
   };
@@ -85,7 +85,7 @@ export function createDirector(stage: Stage): Director {
     intro() {
       if (flight) return;
       const end = now();
-      fly(end, introPose(end), INTRO_MS);
+      fly(end, introPose(end), INTRO_MS, true);
     },
     setInset(right, bottom) {
       inset.right = right;

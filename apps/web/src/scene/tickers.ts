@@ -56,8 +56,10 @@ export function createTickers(model: Model, scene: THREE.Scene): Tickers {
   led.material = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0xffffff, emissiveMap: ledTexture, emissiveIntensity: BLOOM_THRESHOLD * 0.9 });
   let ledText = "";
   let hovered: Ticker | null = null;
-  // tabliczki narysowane przed wczytaniem kroju maja czcionke zastepcza — po wczytaniu od nowa
-  void document.fonts.ready.then(() => {
+  // tabliczki narysowane przed wczytaniem kroju maja czcionke zastepcza — po wczytaniu od nowa.
+  // Sam canvas nie zamawia kroju, a document.fonts.ready bywa juz spelnione, wiec zamawiamy jawnie
+  // (w pauzie ceny sie nie zmieniaja i tabliczki zostalyby z zastepcza na zawsze)
+  void Promise.all([document.fonts.load(`600 30px ${FONT}`), document.fonts.load(`700 30px ${FONT}`)]).then(() => {
     for (const s of signs) s.text = "";
   });
 
