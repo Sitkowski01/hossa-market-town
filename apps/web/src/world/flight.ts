@@ -58,3 +58,22 @@ export function flightAt(a: Pose, b: Pose, elapsed: number, duration = FLIGHT_MS
   const t = ease(elapsed / duration);
   return { position: lerp(a.position, b.position, t), target: lerp(a.target, b.target, t) };
 }
+
+/** Przelot powitalny po wczytaniu makiety — dluzszy niz do budynku, zeby bylo widac cale miasto. */
+export const INTRO_MS = 2400;
+
+/**
+ * Skad startuje przelot powitalny: dalej i wyzej niz ujecie startowe (`scale` razy) i obrocone
+ * o `turn` radianow wokol punktu, na ktory patrzy kamera — makieta "obraca sie" do widza.
+ */
+export function introPose(end: Pose, scale = 1.6, turn = -0.45): Pose {
+  const [tx, ty, tz] = end.target;
+  const dx = (end.position[0] - tx) * scale;
+  const dz = (end.position[2] - tz) * scale;
+  const cos = Math.cos(turn);
+  const sin = Math.sin(turn);
+  return {
+    position: [tx + dx * cos - dz * sin, ty + (end.position[1] - ty) * scale, tz + dx * sin + dz * cos],
+    target: end.target,
+  };
+}

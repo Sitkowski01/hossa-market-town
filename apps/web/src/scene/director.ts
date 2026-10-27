@@ -1,6 +1,6 @@
 import type { Ticker } from "@hossa/economy";
 import * as THREE from "three";
-import { FLIGHT_MS, flightAt, focusPose, type Pose, type Vec3 } from "../world/flight.js";
+import { FLIGHT_MS, INTRO_MS, flightAt, focusPose, introPose, type Pose, type Vec3 } from "../world/flight.js";
 import type { Model } from "./model.js";
 import type { Stage } from "./stage.js";
 
@@ -10,6 +10,8 @@ export interface Director {
   /** Przelot do budynku spolki; pierwszy zapamietuje ujecie, do ktorego wraca `release`. */
   focus(ticker: Ticker): void;
   release(): void;
+  /** Przelot powitalny do obecnego ujecia; pomijany, gdy kamera juz gdzies leci. */
+  intro(): void;
   /** Ile ekranu zaslania panel: obraz przesuwa sie tak, zeby budynek byl w srodku reszty. */
   setInset(right: number, bottom: number): void;
   update(now: number): void;
@@ -42,13 +44,13 @@ export function createDirector(stage: Stage): Director {
   };
   const now = (): Pose => ({ position: vec(camera.position), target: vec(controls.target) });
 
-  let flight: { from: Pose; to: Pose; start: number } | null = null;
+  let flight: { from: Pose; to: Pose; elapsed: number; prev: number; duration: number } | null = null;
   let home: Pose | null = null;
   // ujecie domowe znika dopiero po wyladowaniu: panel otwarty w trakcie powrotu nie zapamieta
   // jako domu punktu w polowie drogi
   let returning = false;
-  const fly = (to: Pose) => {
-    flight = { from: now(), to, start: performance.now() };
+  const fly = (to: Pose, from = now(), duration = FLIGHT_MS) => {
+    flight = { from, to, elapsed: 0, prev: -1, duration };
     controls.enabled = false;
   };
 
@@ -59,7 +61,8 @@ export function createDirector(stage: Stage): Director {
 
   const go = (ticker: Ticker, m: Model) => {
     returning = false;
-    home ??= now();
+    // w trakcie przelotu powitalnego domem jest jego cel, nie punkt w polowie drogi
+    home ??= flight?.duration === INTRO_MS ? flight.to : now();
     const { center, distance } = frame(ticker, m);
     fly(focusPose(now(), center, distance));
   };
@@ -79,16 +82,25 @@ export function createDirector(stage: Stage): Director {
       fly(home);
       returning = true;
     },
+    intro() {
+      if (flight) return;
+      const end = now();
+      fly(end, introPose(end), INTRO_MS);
+    },
     setInset(right, bottom) {
       inset.right = right;
       inset.bottom = bottom;
     },
     update(time) {
       if (flight) {
-        const p = flightAt(flight.from, flight.to, time - flight.start);
+        // najwyzej 50 ms na klatke: pierwsze klatki po wczytaniu (tekstury, mapa cieni) trwaja
+        // nawet sekundy i z zegarem sciennym kamera wyladowalaby od razu u celu
+        if (flight.prev >= 0) flight.elapsed += Math.min(time - flight.prev, 50);
+        flight.prev = time;
+        const p = flightAt(flight.from, flight.to, flight.elapsed, flight.duration);
         camera.position.set(...p.position);
         controls.target.set(...p.target);
-        if (time - flight.start >= FLIGHT_MS) {
+        if (flight.elapsed >= flight.duration) {
           flight = null;
           controls.enabled = true;
           if (returning) home = null;

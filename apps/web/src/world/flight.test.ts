@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { FLIGHT_MS, ease, flightAt, focusPose, tickerOf, type Pose } from "./flight.js";
+import { FLIGHT_MS, INTRO_MS, ease, flightAt, focusPose, introPose, tickerOf, type Pose } from "./flight.js";
 
 describe("tickerOf", () => {
   it("rozpoznaje spolke po przedrostku nazwy z Blendera", () => {
@@ -88,5 +88,33 @@ describe("flightAt", () => {
   it("czas przelotu mozna podac", () => {
     expect(flightAt(a, b, 100, 100)).toEqual(b);
     expect(flightAt(a, b, 25, 100).position[0]).toBeCloseTo(100 * ease(0.25));
+  });
+});
+
+describe("introPose", () => {
+  const end = { position: [10, 100, 50] as const, target: [10, 0, 0] as const };
+
+  it("bez obrotu to samo ujecie, tylko dalej i wyzej", () => {
+    const p = introPose(end, 2, 0);
+    expect(p.target).toEqual(end.target);
+    expect(p.position[0]).toBeCloseTo(10);
+    expect(p.position[1]).toBeCloseTo(200);
+    expect(p.position[2]).toBeCloseTo(100);
+  });
+
+  it("obrot trzyma odleglosc w poziomie i obraca wokol celu", () => {
+    const p = introPose(end, 1, Math.PI / 2);
+    expect(p.position[0]).toBeCloseTo(10 - 50);
+    expect(p.position[1]).toBeCloseTo(100);
+    expect(p.position[2]).toBeCloseTo(0);
+  });
+
+  it("domyslnie startuje 1,6 raza dalej i z boku", () => {
+    const p = introPose(end);
+    const [dx, dy, dz] = [p.position[0] - 10, p.position[1], p.position[2]];
+    expect(Math.hypot(dx, dz)).toBeCloseTo(80);
+    expect(dy).toBeCloseTo(160);
+    expect(dx).toBeGreaterThan(0);
+    expect(INTRO_MS).toBeGreaterThan(FLIGHT_MS);
   });
 });

@@ -113,6 +113,8 @@ const walkers = createWalkers(model, stage.scene);
 const rain = createRain(stage.scene);
 director.useModel(model);
 installSzlifHook(stage, model);
+// przelot powitalny: makieta obraca sie do widza; nie, gdy adres ustawia kamere albo spolke
+if (!view && !company && !matchMedia("(prefers-reduced-motion: reduce)").matches) director.intro();
 onPick(canvas, createPicker(model, stage.camera, canvas, tickers.signs), (t) => {
   // klik w puste miejsce makiety zamyka panel
   select(t, canvas);
