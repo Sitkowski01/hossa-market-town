@@ -28,10 +28,89 @@ body {
   position: fixed;
   inset: 0;
   display: grid;
+  z-index: 20;
   place-items: center;
-  background: var(--tlo);
-  font-size: 1.1rem;
-  transition: opacity 0.4s;
+  padding: 24px;
+  background: radial-gradient(60% 50% at 50% 42%, #16243b, var(--tlo));
+  transition: opacity 0.6s;
+}
+
+.ladowanie-karta {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  width: min(360px, 100%);
+  text-align: center;
+}
+
+.ladowanie-nazwa {
+  margin: 0;
+  font-size: 2.6rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.ladowanie-nazwa::after {
+  content: "";
+  display: inline-block;
+  width: 0.5em;
+  height: 0.32em;
+  margin-left: 0.12em;
+  background: var(--wzrost);
+  clip-path: polygon(0 100%, 35% 45%, 60% 70%, 100% 0, 100% 100%);
+}
+
+.ladowanie-opis {
+  margin: 0 0 14px;
+  color: var(--przygaszony);
+  text-wrap: balance;
+}
+
+.ladowanie-pasek {
+  width: 100%;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: rgb(147 164 187 / 18%);
+}
+
+.ladowanie-pasek span {
+  display: block;
+  height: 100%;
+  background: var(--wzrost);
+  transform: scaleX(var(--postep, 0));
+  transform-origin: left;
+  transition: transform 0.2s;
+}
+
+.ladowanie-pasek[data-nieokreslony] span {
+  width: 30%;
+  transform: none;
+  animation: pasek-nieokreslony 1.2s ease-in-out infinite;
+}
+
+@keyframes pasek-nieokreslony {
+  from {
+    translate: -100%;
+  }
+  to {
+    translate: 340%;
+  }
+}
+
+.ladowanie-tekst {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--przygaszony);
+  font-variant-numeric: tabular-nums;
+}
+
+#ladowanie[data-blad] .ladowanie-pasek span {
+  background: var(--spadek);
+}
+
+#ladowanie[data-blad] .ladowanie-tekst {
+  color: var(--tekst);
 }
 
 #ladowanie.gotowe {
@@ -296,7 +375,8 @@ body[data-panel] .wiadomosci {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .panel {
+  .panel,
+  .ladowanie-pasek span {
     animation: none !important;
   }
 }

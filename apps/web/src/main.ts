@@ -100,8 +100,20 @@ worker.onmessage = (e: MessageEvent<FromWorker>) => {
 send({ type: "start", seed, speed });
 
 const loading = document.getElementById("ladowanie");
-const model = await loadModel(import.meta.env.BASE_URL).catch((error: unknown) => {
-  if (loading) loading.textContent = `Nie udało się wczytać makiety (${error instanceof Error ? error.message : String(error)}). Odśwież stronę.`;
+const loadingText = loading?.querySelector(".ladowanie-tekst");
+const bar = loading?.querySelector<HTMLElement>(".ladowanie-pasek");
+const model = await loadModel(import.meta.env.BASE_URL, (fraction) => {
+  if (!bar || !loadingText) return;
+  // bez rozmiaru od serwera pasek tylko sie przesuwa (stan nieokreslony), bez procentow
+  bar.toggleAttribute("data-nieokreslony", fraction === null);
+  if (fraction === null) return;
+  const pct = Math.round(fraction * 100);
+  bar.style.setProperty("--postep", String(fraction));
+  bar.setAttribute("aria-valuenow", String(pct));
+  loadingText.textContent = `Wczytywanie makiety… ${String(pct)}%`;
+}).catch((error: unknown) => {
+  loading?.setAttribute("data-blad", "");
+  if (loadingText) loadingText.textContent = `Nie udało się wczytać makiety (${error instanceof Error ? error.message : String(error)}). Odśwież stronę.`;
   throw error;
 });
 stage.scene.add(model.root);
@@ -154,6 +166,8 @@ function frame(now: number): void {
   director.update(now);
   stage.render();
 }
+// shadery kompiluja sie jeszcze pod ekranem ladowania, a nie w pierwszej klatce makiety
+await stage.renderer.compileAsync(stage.scene, stage.camera);
 requestAnimationFrame(frame);
 
 loading?.classList.add("gotowe");

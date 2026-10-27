@@ -23,10 +23,11 @@ const PROTOTYPE = /^(drzewo_|latarnia$|auto_|ciezarowka_|pieszy_)/;
 const UP = new THREE.Vector3(0, 1, 0);
 const ROAD_HEIGHT = 0.06; // latarnie i auta stoja na plaskich ulicach miasta
 
-export async function loadModel(base: string): Promise<Model> {
+/** `onProgress` dostaje ulamek pobranej makiety (0..1) albo null, gdy serwer nie podal rozmiaru. */
+export async function loadModel(base: string, onProgress?: (fraction: number | null) => void): Promise<Model> {
   const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
   const [gltf, instances] = await Promise.all([
-    loader.loadAsync(`${base}makieta.glb`),
+    loader.loadAsync(`${base}makieta.glb`, (e) => onProgress?.(e.lengthComputable && e.total > 0 ? e.loaded / e.total : null)),
     fetch(`${base}makieta.json`).then((r) => r.json() as Promise<Instances>),
   ]);
   const root = gltf.scene;

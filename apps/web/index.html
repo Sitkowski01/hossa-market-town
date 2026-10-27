@@ -9,7 +9,14 @@
   </head>
   <body>
     <canvas id="scena" aria-label="Makieta miasteczka"></canvas>
-    <div id="ladowanie" role="status">Wczytywanie makiety…</div>
+    <div id="ladowanie">
+      <div class="ladowanie-karta">
+        <p class="ladowanie-nazwa">Hossa</p>
+        <p class="ladowanie-opis">Miasteczko, w którym gospodarka porusza kursy giełdy</p>
+        <div class="ladowanie-pasek" role="progressbar" aria-label="Wczytywanie makiety" aria-valuemin="0" aria-valuemax="100"><span></span></div>
+        <p class="ladowanie-tekst" role="status">Wczytywanie makiety…</p>
+      </div>
+    </div>
     <script type="module" src="./src/main.ts"></script>
   </body>
 </html>
