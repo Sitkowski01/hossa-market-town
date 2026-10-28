@@ -48,7 +48,7 @@ export function createPanel(onClose: () => void): Panel {
       <strong class="panel-cena" data-testid="panel-cena"></strong>
       <span class="panel-zmiana"></span>
     </div>
-    <div class="panel-tresc" tabindex="0" aria-label="Szczegóły spółki">
+    <div class="panel-tresc" tabindex="0" role="region" aria-label="Szczegóły spółki">
       <section aria-label="Wykres">
         <canvas class="panel-wykres" role="img" aria-label="Wykres świecowy z ostatnich trzech dni"></canvas>
         <p class="panel-legenda"><span class="legenda-wycena"></span> wartość godziwa · świeca = 1/20 dnia</p>
@@ -97,6 +97,12 @@ export function createPanel(onClose: () => void): Panel {
   let drawn = "";
   /** Licznik kursu po otwarciu panelu: od jakiej ceny i od kiedy; null = kurs wpisywany wprost. */
   let counting: { from: number; start: number } | null = null;
+  let countFrame = 0;
+  // zamkniecie albo inna spolka przerywa licznik: dwie petle rAF pisalyby do tej samej ceny
+  const stopCounting = () => {
+    cancelAnimationFrame(countFrame);
+    counting = null;
+  };
   let target = 0;
   return {
     element: root,
@@ -112,7 +118,7 @@ export function createPanel(onClose: () => void): Panel {
       // poprzednia spolka nie mignie, zanim przyjda dane nowej
       for (const list of [asks, bids, prints, news, fundamentals]) list.replaceChildren();
       name.textContent = ticker;
-      counting = null;
+      stopCounting();
       for (const node of [plantText, last, delta]) node.textContent = "";
       delete plantText.dataset.stoi;
       // te same opcje co w drawChart: kontekst canvasa tworzy sie raz, z opcjami pierwszego wywolania
@@ -126,6 +132,7 @@ export function createPanel(onClose: () => void): Panel {
       root.hidden = true;
       delete root.dataset.spolka;
       delete document.body.dataset.panel;
+      stopCounting();
     },
     update(snapshot) {
       const d = snapshot.detail;
@@ -141,10 +148,10 @@ export function createPanel(onClose: () => void): Panel {
           if (!counting) return;
           const t = (now - counting.start) / COUNT_MS;
           last.textContent = price(countUp(counting.from, target, t));
-          if (t < 1) requestAnimationFrame(tick);
+          if (t < 1) countFrame = requestAnimationFrame(tick);
           else counting = null;
         };
-        requestAnimationFrame(tick);
+        countFrame = requestAnimationFrame(tick);
       }
       target = c.price;
       if (!counting) setText(last, price(c.price));

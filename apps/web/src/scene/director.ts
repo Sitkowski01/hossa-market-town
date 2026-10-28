@@ -12,7 +12,6 @@ export interface Director {
   release(): void;
   /** Przelot powitalny do obecnego ujecia; pomijany, gdy kamera juz gdzies leci. */
   intro(): void;
-  /** Ile ekranu zaslania panel: obraz przesuwa sie tak, zeby budynek byl w srodku reszty. */
   /** Ile ekranu zaslania interfejs: lista notowan z lewej, panel z prawej albo od dolu (piksele CSS). */
   setInset(left: number, right: number, bottom: number): void;
   update(now: number): void;
@@ -114,7 +113,8 @@ export function createDirector(stage: Stage): Director {
       }
       const dt = Math.min((time - last) / 1000, 0.1);
       last = time;
-      const k = 1 - Math.exp(-SHIFT_RATE * dt);
+      // przy ograniczonym ruchu obraz przeskakuje od razu, tak jak kamera
+      const k = still.matches ? 1 : 1 - Math.exp(-SHIFT_RATE * dt);
       // srodek kadru = srodek wolnego pola miedzy lista notowan a panelem
       shift.x += ((inset.right - inset.left) / 2 - shift.x) * k;
       shift.y += (inset.bottom / 2 - shift.y) * k;

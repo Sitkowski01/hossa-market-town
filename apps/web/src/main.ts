@@ -80,13 +80,14 @@ const newsBar = createNewsBar(select);
 // panel zaslania prawa strone (komputer) albo dol ekranu (telefon) — scena przesuwa obraz o tyle
 const szlifMode = new URLSearchParams(location.search).has("szlif");
 const fitInset = () => {
-  // bez panelu: na wezszym ekranie makieta odsuwa sie od listy notowan, zeby tabliczki nie wchodzily pod nia
+  // bez panelu: makieta odsuwa sie od listy notowan, zeby tabliczki nie wchodzily pod nia (na
+  // komputerze kopalnia stoi w lewym gornym rogu i jej tabliczka gasla pod lista); telefon ma liste u dolu
   if (panel.element.hidden) {
     const list = document.querySelector<HTMLElement>(".notowania");
     // ?szlif ustawia kamere sam (modele z pieciu stron) — przesuniecie zsuwaloby kadr
-    const narrow = window.innerWidth < 1200 && window.innerWidth > 720 && !szlifMode;
-    // o polowe: cala lista zepchnelaby prawa krawedz makiety poza ekran
-    director.setInset(narrow && list ? (list.offsetLeft + list.offsetWidth) / 2 : 0, 0, 0);
+    const side = window.innerWidth > 720 && !szlifMode && list ? list.offsetLeft + list.offsetWidth : 0;
+    // na wezszym ekranie o polowe: cala lista zepchnelaby prawa krawedz makiety poza ekran
+    director.setInset(window.innerWidth < 1200 ? side / 2 : side, 0, 0);
     return;
   }
   // offsetLeft/Top to miejsce z ukladu strony, bez transformacji: animacja wjazdu ich nie przesuwa
@@ -100,6 +101,8 @@ const fitInset = () => {
 };
 new ResizeObserver(fitInset).observe(panel.element);
 window.addEventListener("resize", fitInset);
+// ukryty panel (display: none) nie dostaje pierwszego powiadomienia ResizeObservera — start recznie
+fitInset();
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && panel.ticker) select(null);
 });
@@ -144,8 +147,7 @@ director.useModel(model);
 installSzlifHook(stage, model);
 // przelot powitalny: makieta obraca sie do widza; nie, gdy adres ustawia kamere albo spolke,
 // ani przy ?szlif — petla szlifu sama ustawia kamere, a przelot by ja nadpisywal
-const szlif = new URLSearchParams(location.search).has("szlif");
-if (!view && !company && !szlif && !matchMedia("(prefers-reduced-motion: reduce)").matches) director.intro();
+if (!view && !company && !szlifMode && !matchMedia("(prefers-reduced-motion: reduce)").matches) director.intro();
 hoverTicker = (t) => {
   tickers.highlight(t);
   quotes.highlight(t);

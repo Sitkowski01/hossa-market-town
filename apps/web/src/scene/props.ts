@@ -46,11 +46,8 @@ export function createProps(model: Model, scene: THREE.Scene): Props {
   lamp.emissive.copy(LAMP);
   const windows = model.material("okna");
   // noca morze na prawie czarnym tle strony bylo czarna dziura: slaba granatowa poswiata jak odbity ksiezyc
-  let seaMaterial: THREE.MeshStandardMaterial | undefined;
-  model.node("morze").traverse((o) => {
-    if (!seaMaterial && o instanceof THREE.Mesh) seaMaterial = o.material as THREE.MeshStandardMaterial;
-  });
-  const sea = seaMaterial as THREE.MeshStandardMaterial;
+  // (ten sam material maja czasze fontanny na rynku — woda w niej tez odbija ksiezyc, celowo)
+  const sea = model.material("woda");
   sea.emissive.set(0x1b3a5c);
   windows.emissive.copy(WINDOW);
   windows.emissiveMap = windows.map;

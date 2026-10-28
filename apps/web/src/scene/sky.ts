@@ -101,12 +101,14 @@ export function createGroundShadow(root: THREE.Object3D): THREE.Mesh {
   canvas.width = canvas.height = 128;
   const g = canvas.getContext("2d") as CanvasRenderingContext2D;
   const grad = g.createRadialGradient(64, 64, 18, 64, 64, 64);
-  grad.addColorStop(0, "rgba(51,65,85,0.55)");
-  grad.addColorStop(0.5, "rgba(30,41,59,0.4)");
-  grad.addColorStop(1, "rgba(15,23,42,0)");
+  // kolory sRGB (tak jak na ekranie): jasny grafit pod makieta, gasnacy ku brzegom
+  grad.addColorStop(0, "rgba(123,138,156,0.55)");
+  grad.addColorStop(0.5, "rgba(96,112,132,0.4)");
+  grad.addColorStop(1, "rgba(69,85,113,0)");
   g.fillStyle = grad;
   g.fillRect(0, 0, 128, 128);
   const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
   const shadow = new THREE.Mesh(
     new THREE.PlaneGeometry(size.x * 1.45, size.z * 1.6),
     new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false, toneMapped: false, fog: false }),

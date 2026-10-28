@@ -36,7 +36,7 @@ export function createQuotes(onPick: (ticker: Ticker, from: HTMLElement) => void
       onHover(null);
     });
     nav.append(b);
-    return { ticker: t, button: b, price: b.children[1] as HTMLElement, change: b.children[2] as HTMLElement, text: "" };
+    return { ticker: t, button: b, price: b.children[1] as HTMLElement, change: b.children[2] as HTMLElement, text: "", last: 0 };
   });
   document.body.append(nav);
   // na telefonie lista przewija sie w bok: prawa krawedz gasnie, dopoki cos jeszcze jest za nia
@@ -58,8 +58,10 @@ export function createQuotes(onPick: (ticker: Ticker, from: HTMLElement) => void
         const text = `${price(c.price)}|${change(pct)}`;
         if (text === r.text) continue;
         // zmiana kursu (nie pierwsze wypelnienie): cena na chwile zapala sie kolorem ruchu, jak na
-        // tablicy maklerskiej; caly wiersz migalby przy tempie 1x przez jedna trzecia czasu
-        if (r.text !== "" && !still.matches) r.price.animate([{ color: FLASH[trend(pct)] }, {}], { duration: 600, easing: "ease-out" });
+        // tablicy maklerskiej (ruch od poprzedniej ceny, nie od otwarcia: spolka na plusie tez spada);
+        // caly wiersz migalby przy tempie 1x przez jedna trzecia czasu
+        if (r.text !== "" && !still.matches) r.price.animate([{ color: FLASH[trend(c.price / r.last - 1)] }, {}], { duration: 600, easing: "ease-out" });
+        r.last = c.price;
         r.text = text;
         r.button.title = c.name;
         // jednostka z CSS: na komputerze "zl" przy cenie, na waskim kafelku telefonu sama liczba
