@@ -184,8 +184,8 @@ Na makiecie widać to, co dzieje się w gospodarce:
 - nad spółkami tabliczki z kursem, a na fasadzie giełdy przewija się pas notowań,
 - na rynku spacerują przechodnie: w dzień tłum, w nocy kilku spacerowiczów, w sztorm prawie
   nikt; za dnia ich liczba idzie za popytem w Sieci Koszyk,
-- jeden dzień gospodarki to doba na makiecie: słońce, noc z oknami i latarniami, a tło za
-  makietą to studyjna winieta w kolorze nieba danej pory i pogody.
+- jeden dzień gospodarki to doba na makiecie: słońce, noc z oknami i latarniami; makieta stoi
+  na tle w stylu reszty portfolio (grafit z siatką, Inter / JetBrains Mono / Space Grotesk).
 
 Czas płynie w tempie 1×, 4× albo 16×; między migawkami scena ekstrapoluje go, żeby
 ciężarówki jechały płynnie, ale nie wchodzi w dzień, którego worker jeszcze nie policzył.
