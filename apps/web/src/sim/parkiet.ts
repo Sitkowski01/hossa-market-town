@@ -8,7 +8,8 @@ import type { Command } from "@hossa/market";
  * pokazuje to na zywo.
  *
  * Kolejnosc liczy sie tylko w obrebie spolki (kazdy arkusz jest osobny), wiec kazda spolka ma
- * wlasna kolejke zadan, a szesc kolejek idzie rownolegle.
+ * wlasna kolejke zadan, a szesc kolejek idzie rownolegle. Numery zlecen Parkietu sa inne niz
+ * lokalne, wiec mirror pamieta, ktore zlecenie Parkietu odpowiada ktoremu czekajacemu lokalnie.
  */
 
 export type LinkState = "connecting" | "ready" | "error";
@@ -129,6 +130,7 @@ export class ParkietMirror {
   private async run(command: Command): Promise<void> {
     this.sent += 1;
     if (command.kind === "submit") await this.submit(command);
+    else await this.cancel(command.ticker, command.orderId);
   }
 
   private async submit(command: Extract<Command, { kind: "submit" }>): Promise<void> {
@@ -160,6 +162,16 @@ export class ParkietMirror {
       if (e.kind === "RESTED") this.resting.set(command.orderId, { remote: reply.orderId, remaining: e.quantity });
       else if (e.kind === "TRADE") this.filled(e.makerOrderId, e.quantity);
     }
+  }
+
+  private async cancel(ticker: Ticker, orderId: number): Promise<void> {
+    const order = this.resting.get(orderId);
+    this.resting.delete(orderId);
+    if (!order) throw new Error(`zlecenie ${String(orderId)} nie doszlo wczesniej do Parkietu`);
+    const reply = await this.http(`${this.base}/api/instruments/${ticker}/orders/${String(order.remote)}?runId=${String(this.runId)}`, { method: "DELETE" });
+    if (reply.ok) this.matched += 1;
+    else if (reply.status === 404) this.differs(`${ticker}: Parkiet nie mial juz zlecenia ${String(orderId)} do anulowania`);
+    else throw new Error(`HTTP ${String(reply.status)} przy anulowaniu w ${ticker}`);
   }
 
   private compare(command: Command, expected: readonly RemoteEvent[], actual: readonly RemoteEvent[]): void {

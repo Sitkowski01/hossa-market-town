@@ -1,6 +1,6 @@
 import { OrderBook, orderRequest, type BookEvent } from "@hossa/engine";
 import { TICKERS, type Ticker } from "@hossa/economy";
-import type { Command } from "@hossa/market";
+import { Session, type Command } from "@hossa/market";
 import { describe, expect, it } from "vitest";
 import { ParkietMirror, zloty, type Http } from "./parkiet.js";
 
@@ -55,6 +55,27 @@ const submit = (ticker: Ticker, orderId: number, side: "BUY" | "SELL", price: nu
 const rested = (orderId: number, side: "BUY" | "SELL", price: number, quantity: number): BookEvent[] => [{ kind: "RESTED", orderId, side, price, quantity }];
 
 describe("ParkietMirror", () => {
+  it("replays a whole session on Parkiet and every reply matches the engine in the browser", async () => {
+    const parkiet = fakeParkiet({ firstId: 1001 });
+    const mirror = new ParkietMirror(BASE, "h42", parkiet.http);
+    const session = new Session({
+      seed: 42,
+      onCommand: (c) => {
+        mirror.push(c);
+      },
+    });
+    for (let i = 0; i < 60; i++) session.tick();
+    await mirror.idle();
+    const stats = mirror.stats();
+    expect(stats.state).toBe("ready");
+    expect(stats.sent).toBeGreaterThan(1000);
+    expect(stats).toMatchObject({ matched: stats.sent, mismatched: 0, failed: 0, pending: 0 });
+    for (const t of TICKERS) {
+      expect(parkiet.books.get(t)?.depth("BUY", 5)).toEqual(session.markets[t].book.depth("BUY", 5));
+      expect(parkiet.books.get(t)?.depth("SELL", 5)).toEqual(session.markets[t].book.depth("SELL", 5));
+    }
+  });
+
   it("sends prices in zloty, no price for a market order, and a client order id with the session tag", async () => {
     const parkiet = fakeParkiet();
     const bodies: unknown[] = [];
@@ -72,6 +93,20 @@ describe("ParkietMirror", () => {
     expect(mirror.stats()).toMatchObject({ matched: 2, mismatched: 0 });
   });
 
+  it("cancels on Parkiet under Parkiet's order number and run, and forgets orders filled in full", async () => {
+    const parkiet = fakeParkiet({ firstId: 50 });
+    const mirror = new ParkietMirror(BASE, "h", parkiet.http);
+    mirror.push(submit("STW", 1, "BUY", 4000, 5, rested(1, "BUY", 4000, 5)));
+    mirror.push(submit("STW", 2, "BUY", 3900, 5, rested(2, "BUY", 3900, 5)));
+    mirror.push({ kind: "submit", ticker: "STW", orderId: 3, side: "SELL", type: "MARKET", price: 0, quantity: 5, events: [{ kind: "TRADE", makerOrderId: 1, takerOrderId: 3, takerSide: "SELL", price: 4000, quantity: 5 }] });
+    mirror.push({ kind: "cancel", ticker: "STW", orderId: 2 });
+    mirror.push({ kind: "cancel", ticker: "STW", orderId: 1 }); // juz zrealizowane: nie ma czego wysylac
+    await mirror.idle();
+    expect(parkiet.requests).toContain("DELETE /api/instruments/STW/orders/51?runId=3");
+    expect(mirror.stats()).toMatchObject({ sent: 5, matched: 4, mismatched: 0, failed: 1 });
+    expect(mirror.stats().lastError).toContain("zlecenie 1 nie doszlo");
+  });
+
   it("notices when Parkiet answers differently than the engine in the browser", async () => {
     const parkiet = fakeParkiet({ tamper: (events) => events.map((e) => (e.kind === "TRADE" ? { ...e, price: e.price + 5 } : e)) });
     const mirror = new ParkietMirror(BASE, "h", parkiet.http);
@@ -80,6 +115,17 @@ describe("ParkietMirror", () => {
     await mirror.idle();
     expect(mirror.stats()).toMatchObject({ matched: 1, mismatched: 1 });
     expect(mirror.stats().lastError).toMatch(/^BPT: zlecenie 2 dalo w Parkiecie .*"price":"50.05".* zamiast .*"price":"50.00"/);
+  });
+
+  it("counts a cancel that Parkiet no longer had as a difference", async () => {
+    const parkiet = fakeParkiet();
+    const mirror = new ParkietMirror(BASE, "h", parkiet.http);
+    mirror.push(submit("KSZ", 1, "BUY", 9000, 2, rested(1, "BUY", 9000, 2)));
+    await mirror.idle();
+    parkiet.books.get("KSZ")?.cancel(1);
+    mirror.push({ kind: "cancel", ticker: "KSZ", orderId: 1 });
+    await mirror.idle();
+    expect(mirror.stats()).toMatchObject({ matched: 1, mismatched: 1, lastError: "KSZ: Parkiet nie mial juz zlecenia 1 do anulowania" });
   });
 
   it("refuses to mirror into a Parkiet without the town's companies or with orders left from another session", async () => {
@@ -106,9 +152,16 @@ describe("ParkietMirror", () => {
     expect(mirror.stats()).toMatchObject({ sent: 2, matched: 1, failed: 1, lastError: "HTTP 503 z /api/instruments/MTK/orders" });
   });
 
-  it("fails cleanly when Parkiet is down", async () => {
+  it("fails cleanly when Parkiet is down, and reports a broken cancel as an error", async () => {
     const down = new ParkietMirror(BASE, "h", () => Promise.reject(new Error("Failed to fetch")));
     await down.idle();
     expect(down.stats()).toMatchObject({ state: "error", lastError: "Failed to fetch" });
+
+    const parkiet = fakeParkiet();
+    const mirror = new ParkietMirror(BASE, "h", (url, init) => (init?.method === "DELETE" ? Promise.resolve(new Response("", { status: 500 })) : parkiet.http(url, init)));
+    mirror.push(submit("GRS", 1, "SELL", 7300, 1, rested(1, "SELL", 7300, 1)));
+    mirror.push({ kind: "cancel", ticker: "GRS", orderId: 1 });
+    await mirror.idle();
+    expect(mirror.stats()).toMatchObject({ matched: 1, failed: 1, lastError: "HTTP 500 przy anulowaniu w GRS" });
   });
 });
