@@ -94,3 +94,11 @@ export const TAG_CLEARANCE = 14;
 export function labelledGrid<T extends { readonly y: number }>(grid: readonly T[], plotHeight: number, tags: readonly number[]): T[] {
   return grid.filter((line) => line.y >= 7 && line.y <= plotHeight - 7 && tags.every((t) => Math.abs(t - line.y) >= TAG_CLEARANCE));
 }
+
+/**
+ * Ile miejsc na swiece rysuje wykres: tyle, ile swiec, ale nie mniej niz `min` i nie wiecej niz
+ * `max`. Na poczatku sesji kilka swiec nie stoi sciesnionych w prawym rogu 60 pustych miejsc.
+ */
+export function chartSlots(count: number, max: number, min = 20): number {
+  return Math.min(max, Math.max(min, count));
+}

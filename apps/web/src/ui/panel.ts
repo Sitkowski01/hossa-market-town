@@ -1,7 +1,9 @@
 import type { Ticker } from "@hossa/economy";
 import { BARS_SHOWN, type Snapshot } from "../sim/protocol.js";
 import { change, price, toneOf, trend } from "../world/format.js";
+import { chartSlots } from "../world/chart.js";
 import { depth, facts, plant, tape, type DepthRow } from "../world/market-view.js";
+import { countUp } from "../world/smooth.js";
 import { drawChart } from "./chart.js";
 import { setData, setText, sync, type Row } from "./dom.js";
 
@@ -19,6 +21,10 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className: string, te
   node.textContent = text;
   return node;
 };
+
+/** Jak dlugo kurs dochodzi do wartosci po otwarciu panelu. */
+const COUNT_MS = 600;
+const still = matchMedia("(prefers-reduced-motion: reduce)");
 
 /**
  * Panel spolki: kurs i zmiana, wykres swiecowy, arkusz zlecen, tasma transakcji, fundamenty
@@ -89,6 +95,9 @@ export function createPanel(onClose: () => void): Panel {
   let current: Ticker | null = null;
   // wykres rysuje sie od nowa tylko, gdy cos sie na nim zmienilo (w pauzie migawki sa takie same)
   let drawn = "";
+  /** Licznik kursu po otwarciu panelu: od jakiej ceny i od kiedy; null = kurs wpisywany wprost. */
+  let counting: { from: number; start: number } | null = null;
+  let target = 0;
   return {
     element: root,
     get ticker() {
@@ -103,6 +112,7 @@ export function createPanel(onClose: () => void): Panel {
       // poprzednia spolka nie mignie, zanim przyjda dane nowej
       for (const list of [asks, bids, prints, news, fundamentals]) list.replaceChildren();
       name.textContent = ticker;
+      counting = null;
       for (const node of [plantText, last, delta]) node.textContent = "";
       delete plantText.dataset.stoi;
       // te same opcje co w drawChart: kontekst canvasa tworzy sie raz, z opcjami pierwszego wywolania
@@ -124,7 +134,20 @@ export function createPanel(onClose: () => void): Panel {
       setText(name, `${c.name} · ${current}`);
       setText(plantText, plant(current, c.output) ?? "kredyty dla firm z miasteczka");
       setData(plantText, "stoi", String(c.output <= 0 && current !== "GRS"));
-      setText(last, price(c.price));
+      // pierwsze dane po otwarciu: kurs dochodzi od otwarcia do biezacego (ile spolka przeszla dzisiaj)
+      if (counting === null && last.textContent === "" && !still.matches) {
+        counting = { from: c.open, start: performance.now() };
+        const tick = (now: number) => {
+          if (!counting) return;
+          const t = (now - counting.start) / COUNT_MS;
+          last.textContent = price(countUp(counting.from, target, t));
+          if (t < 1) requestAnimationFrame(tick);
+          else counting = null;
+        };
+        requestAnimationFrame(tick);
+      }
+      target = c.price;
+      if (!counting) setText(last, price(c.price));
       const pct = c.price / c.open - 1;
       setText(delta, `${change(pct)} od otwarcia`);
       setData(delta, "kierunek", trend(pct));
@@ -133,7 +156,7 @@ export function createPanel(onClose: () => void): Panel {
       const key = [Math.floor(snapshot.time), d.bars.length, lastBar?.day, lastBar?.high, lastBar?.low, lastBar?.close, d.bars[0]?.open, c.fair, c.price, chart.clientWidth, chart.clientHeight].join("|");
       if (key !== drawn) {
         drawn = key;
-        drawChart(chart, d.bars, c.fair, c.price, BARS_SHOWN);
+        drawChart(chart, d.bars, c.fair, c.price, chartSlots(d.bars.length, BARS_SHOWN));
       }
 
       const book = depth(d.bids, d.asks);

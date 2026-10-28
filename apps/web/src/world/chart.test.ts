@@ -1,7 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import type { Bar } from "../sim/protocol.js";
-import { TAG_CLEARANCE, gridStep, labelledGrid, layoutChart } from "./chart.js";
+import { TAG_CLEARANCE, chartSlots, gridStep, labelledGrid, layoutChart } from "./chart.js";
 
 const bar = (day: number, open: number, high: number, low: number, close: number): Bar => ({ day, open, high, low, close, volume: 1 });
 const box = { width: 600, height: 200 };
@@ -116,5 +116,14 @@ describe("labelledGrid", () => {
   it("podpis dokladnie TAG_CLEARANCE od plakietki zostaje", () => {
     expect(labelledGrid([{ y: 50 }], 200, [50 + TAG_CLEARANCE])).toEqual([{ y: 50 }]);
     expect(labelledGrid([{ y: 50 }], 200, [50 - TAG_CLEARANCE + 0.5])).toEqual([]);
+  });
+});
+
+describe("chartSlots", () => {
+  it("kilka swiec dostaje co najmniej 20 miejsc, potem tyle, ile swiec, do pelnych trzech dni", () => {
+    expect(chartSlots(3, 60)).toBe(20);
+    expect(chartSlots(35, 60)).toBe(35);
+    expect(chartSlots(60, 60)).toBe(60);
+    expect(chartSlots(90, 60)).toBe(60);
   });
 });
