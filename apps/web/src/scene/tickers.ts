@@ -4,13 +4,14 @@ import type { Snapshot } from "../sim/protocol.js";
 import { TICKERS } from "../world/companies.js";
 import { FONT } from "../fonts.js";
 import { change, price, trend } from "../world/format.js";
-import { covered, fade, type Rect } from "../world/overlap.js";
+import { covered, fade, lifts, type Rect } from "../world/overlap.js";
 import { BLOOM_THRESHOLD } from "./stage.js";
 import type { Model } from "./model.js";
 
-const UP = "#2fbf71";
-const DOWN = "#e5484d";
-const FLAT = "#93a4bb";
+// kolory z portfolio (tekst wzrostu i spadku na grafitowym tle)
+const UP = "#34d399";
+const DOWN = "#f87171";
+const FLAT = "#94a3b8";
 const SIGN_PX = 130;
 
 export interface Tickers {
@@ -44,7 +45,7 @@ export function createTickers(model: Model, scene: THREE.Scene): Tickers {
     sprite.userData = { ticker: t };
     sprite.position.copy(model.anchor(`${t}_kurs`)).add(new THREE.Vector3(0, 4, 0));
     scene.add(sprite);
-    return { ticker: t, sprite, canvas, texture, text: "", grow: 1 };
+    return { ticker: t, sprite, canvas, texture, text: "", grow: 1, lift: 0 };
   });
 
   const led = model.node("GIELDA_led") as THREE.Mesh;
@@ -77,19 +78,29 @@ export function createTickers(model: Model, scene: THREE.Scene): Tickers {
       const px = Math.min(SIGN_PX, viewport.width * 0.24);
       const size = ((2 * px) / viewport.height) * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
       const at = new THREE.Vector3();
-      for (const s of signs) {
+      // najpierw gdzie wypada kazda tabliczka, potem rozsuniecie nachodzacych (GRS i KSZ na rynku)
+      const rects = signs.map((s) => {
+        at.copy(s.sprite.position).project(camera);
+        const x = ((at.x + 1) / 2) * viewport.width;
+        const y = ((1 - at.y) / 2) * viewport.height;
+        return { left: x - px / 2, right: x + px / 2, top: y - px * 0.1875, bottom: y + px * 0.1875, behind: at.z > 1 };
+      });
+      const lift = lifts(rects.filter((r) => !r.behind));
+      let visibleIndex = 0;
+      for (const [i, s] of signs.entries()) {
         // wyroznienie rosnie i maleje plynnie (ok. 0,15 s), wyrozniona tabliczka jest nad innymi
         s.grow += ((s.ticker === hovered ? 1.18 : 1) - s.grow) * Math.min(1, dt * 14);
         s.sprite.renderOrder = s.ticker === hovered ? 11 : 10;
         s.sprite.scale.set(size * s.grow, size * 0.375 * s.grow, 1);
-        // gdzie tabliczka jest na ekranie: srodek z rzutu kamery, wymiary jak w skali wyzej
-        at.copy(s.sprite.position).project(camera);
-        const x = ((at.x + 1) / 2) * viewport.width;
-        const y = ((1 - at.y) / 2) * viewport.height;
-        const rect = { left: x - px / 2, right: x + px / 2, top: y - px * 0.1875, bottom: y + px * 0.1875 };
+        const base = rects[i] as (typeof rects)[number];
+        const up = base.behind ? 0 : (lift[visibleIndex++] ?? 0);
+        // podniesienie dochodzi plynnie; center przesuwa sprite w pikselach ekranu, bez ruszania sceny
+        s.lift += (up - s.lift) * Math.min(1, dt * 10);
+        s.sprite.center.set(0.5, 0.5 - s.lift / (px * 0.375));
+        const rect = { left: base.left, right: base.right, top: base.top - s.lift, bottom: base.bottom - s.lift };
         // uciete krawedzia ekranu tez gasna — polowa tabliczki to polowa ceny
         const offScreen = rect.left < 0 || rect.top < 0 || rect.right > viewport.width || rect.bottom > viewport.height;
-        const hidden = at.z > 1 || offScreen || covered(rect, panels);
+        const hidden = base.behind || offScreen || covered(rect, panels);
         const material = s.sprite.material;
         material.opacity = fade(material.opacity, hidden ? 0 : 1, dt);
         // niewidoczna tabliczka nie przechwytuje klikniec przeznaczonych dla panelu
@@ -101,21 +112,31 @@ export function createTickers(model: Model, scene: THREE.Scene): Tickers {
         s.text = text;
         const g = s.canvas.getContext("2d") as CanvasRenderingContext2D;
         g.clearRect(0, 0, 256, 96);
-        g.fillStyle = "rgba(11, 18, 32, 0.86)";
+        // karta jak w portfolio: grafit, cienka ramka, "$TICKER" i zmiana u gory, kurs pod spodem,
+        // a na dole swiecaca kreska w kolorze kierunku
+        g.fillStyle = "rgba(15, 23, 42, 0.92)";
+        g.strokeStyle = "#334155";
+        g.lineWidth = 2;
         g.beginPath();
-        g.roundRect(4, 4, 248, 88, 14);
+        g.roundRect(5, 5, 246, 86, 12);
         g.fill();
+        g.stroke();
         g.fillStyle = tone(pct);
-        g.fillRect(4, 80, 248, 12);
-        g.font = `600 30px ${FONT}`;
-        g.fillStyle = "#e6edf6";
-        g.fillText(s.ticker, 18, 40);
+        g.fillRect(18, 84, 220, 4);
+        g.font = `500 26px ${FONT}`;
+        g.fillStyle = "#7a879c";
+        g.fillText("$", 18, 38);
+        g.font = `700 26px ${FONT}`;
+        g.fillStyle = "#f8fafc";
+        g.fillText(s.ticker, 35, 38);
+        g.font = `600 24px ${FONT}`;
         g.fillStyle = tone(pct);
         g.textAlign = "right";
-        g.fillText(change(pct), 238, 40);
+        const arrow = trend(pct) === "wzrost" ? "▲ " : trend(pct) === "spadek" ? "▼ " : "";
+        g.fillText(`${arrow}${change(pct)}`, 238, 38);
         g.textAlign = "left";
         g.font = `700 30px ${FONT}`;
-        g.fillStyle = "#e6edf6";
+        g.fillStyle = "#f8fafc";
         g.fillText(price(c.price), 18, 72);
         s.texture.needsUpdate = true;
       }
@@ -127,11 +148,11 @@ export function createTickers(model: Model, scene: THREE.Scene): Tickers {
         g.fillStyle = "#000";
         g.fillRect(0, 0, 2048, 64);
         g.textBaseline = "middle";
-        // bez Consolas (Linux, macOS) czcionka zastepcza jest szersza — dopasuj, zeby ostatni kurs sie zmiescil
+        // zanim JetBrains Mono sie wczyta, zastepcza czcionka bywa szersza — dopasuj, zeby ostatni kurs sie zmiescil
         const labels = TICKERS.map((t) => `${t} ${price(snapshot.companies[t].price)}   `);
-        g.font = "700 40px Consolas, monospace";
+        g.font = `700 40px ${FONT}`;
         const width = g.measureText(labels.join("")).width;
-        g.font = `700 ${String(Math.floor(40 * Math.min(1, 2008 / width)))}px Consolas, monospace`;
+        g.font = `700 ${String(Math.floor(40 * Math.min(1, 2008 / width)))}px ${FONT}`;
         let x = 20;
         for (const [i, t] of TICKERS.entries()) {
           const c = snapshot.companies[t];

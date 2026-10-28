@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { covered, fade } from "./overlap.js";
+import { covered, fade, lifts } from "./overlap.js";
 
 const panel = { left: 0, top: 0, right: 100, bottom: 50 };
 
@@ -42,5 +42,24 @@ describe("fade", () => {
     expect(fade(0.9, 1, 0.05)).toBe(1);
     expect(fade(0.5, 1, 0.1, 2)).toBeCloseTo(0.7);
     expect(fade(0.5, 0.5, 0.1)).toBe(0.5);
+  });
+});
+
+describe("lifts", () => {
+  const r = (left: number, top: number) => ({ left, top, right: left + 100, bottom: top + 36 });
+
+  it("tabliczki obok siebie nie ruszaja sie", () => {
+    expect(lifts([r(0, 100), r(120, 100)])).toEqual([0, 0]);
+  });
+
+  it("z dwoch nachodzacych nizsza zostaje, a wyzsza wchodzi nad nia z odstepem", () => {
+    // GRS (wyzej) i KSZ (nizej, przesunieta w prawo) jak na rynku
+    expect(lifts([r(0, 100), r(60, 118)])).toEqual([22, 0]);
+  });
+
+  it("trzy w kolumnie ukladaja sie w stos, a kolejnosc wejscia nie ma znaczenia", () => {
+    const stack = lifts([r(0, 100), r(10, 110), r(20, 120)]);
+    expect(stack).toEqual([60, 30, 0]);
+    expect(lifts([r(20, 120), r(0, 100), r(10, 110)])).toEqual([0, 60, 30]);
   });
 });

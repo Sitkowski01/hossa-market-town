@@ -19,3 +19,31 @@ export function fade(current: number, target: number, dt: number, rate = 6): num
   const step = rate * dt;
   return target > current ? Math.min(target, current + step) : Math.max(target, current - step);
 }
+
+/**
+ * O ile pikseli podniesc kazda tabliczke, zeby sie nie nakladaly (GRS i KSZ stoja obok siebie na
+ * rynku). Nizsza na ekranie zostaje, wyzsza idzie nad nia — tak jak etykiety na wykresie.
+ */
+export function lifts(signs: readonly Rect[], gap = 4): number[] {
+  const order = signs.map((_, i) => i).sort((a, b) => (signs[b]?.bottom ?? 0) - (signs[a]?.bottom ?? 0));
+  const out = signs.map(() => 0);
+  const placed: Rect[] = [];
+  for (const i of order) {
+    let r = signs[i] as Rect;
+    let lift = 0;
+    for (let moved = true; moved; ) {
+      moved = false;
+      for (const p of placed) {
+        if (r.left < p.right && r.right > p.left && r.top < p.bottom + gap && r.bottom > p.top - gap) {
+          const d = r.bottom - (p.top - gap);
+          lift += d;
+          r = { ...r, top: r.top - d, bottom: r.bottom - d };
+          moved = true;
+        }
+      }
+    }
+    out[i] = lift;
+    placed.push(r);
+  }
+  return out;
+}
