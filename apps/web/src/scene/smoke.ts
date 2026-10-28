@@ -13,21 +13,27 @@ export interface Smoke {
 const vertex = /* glsl */ `
   attribute float age;
   uniform float size;
+  uniform float screen;
   varying float vAge;
+  varying float vNear;
   void main() {
     vAge = age;
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
     gl_PointSize = size * (1.0 + 3.0 * age) / -mv.z;
+    // klab tuz przy kamerze (zblizenie na zaklad) zajmowalby pol ekranu, a kilka takich daje biala
+    // plame — gasnie, gdy urosnie ponad ok. dziesiata czesc wysokosci obrazu (niezaleznie od ujecia)
+    vNear = 1.0 - smoothstep(0.04, 0.1, gl_PointSize / screen);
     gl_Position = projectionMatrix * mv;
   }
 `;
 const fragment = /* glsl */ `
   uniform vec3 color;
   varying float vAge;
+  varying float vNear;
   void main() {
     if (vAge >= 1.0) discard;
     float d = length(gl_PointCoord - 0.5) * 2.0;
-    float alpha = smoothstep(1.0, 0.2, d) * (1.0 - vAge) * min(1.0, vAge * 6.0) * 0.45;
+    float alpha = smoothstep(1.0, 0.2, d) * (1.0 - vAge) * min(1.0, vAge * 6.0) * 0.45 * vNear;
     gl_FragColor = vec4(color, alpha);
   }
 `;
@@ -46,7 +52,7 @@ export function createSmoke(scene: THREE.Scene, origin: THREE.Vector3, pixelRati
   const material = new THREE.ShaderMaterial({
     vertexShader: vertex,
     fragmentShader: fragment,
-    uniforms: { size: { value: size * pixelRatio }, color: { value: new THREE.Color() } },
+    uniforms: { size: { value: size * pixelRatio }, screen: { value: 1 }, color: { value: new THREE.Color() } },
     transparent: true,
     depthWrite: false,
   });
@@ -59,6 +65,8 @@ export function createSmoke(scene: THREE.Scene, origin: THREE.Vector3, pixelRati
   return {
     update(rate, dt, light) {
       (material.uniforms.color as THREE.IUniform<THREE.Color>).value.setScalar(0.05 + 0.6 * light);
+      // wysokosc obrazu w pikselach bufora (w nich liczy sie gl_PointSize)
+      (material.uniforms.screen as THREE.IUniform<number>).value = window.innerHeight * pixelRatio;
       debt += (rate * PARTICLES * dt) / LIFE;
       while (debt >= 1) {
         debt -= 1;
