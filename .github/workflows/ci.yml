@@ -56,8 +56,17 @@ jobs:
       - run: pnpm build
       - name: Chromium dla Playwright
         run: pnpm --filter @hossa/web exec playwright install --with-deps chromium
+      # Tryb polaczony: prawdziwy Parkiet z obrazu ghcr.io, swiezy (puste arkusze) tylko dla tego przebiegu
+      - name: Parkiet (gielda w Javie) w dockerze
+        run: |
+          docker compose -f parkiet/compose.yaml up -d
+          for i in $(seq 1 60); do curl -sf localhost:8088/api/instruments && exit 0; sleep 2; done
+          docker compose -f parkiet/compose.yaml logs parkiet
+          exit 1
       - name: Makieta w przegladarce (WebGL przez SwiftShader)
         run: pnpm --filter @hossa/web e2e
+        env:
+          PARKIET_E2E: "1"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: failure()
         with:
