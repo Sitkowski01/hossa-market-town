@@ -230,9 +230,50 @@ robi zrzut w południe i w nocy i liczy przepalone piksele.
 
 | Test | Co sprawdza |
 |---|---|
-| jednostkowe + fast-check | trasy (łuki, prawy pas, brak skoków), kolumny ciężarówek, faza statku bez przeskoków między dniami, pora dnia, migawka z prawdziwej sesji (strajk, sztorm, wypadek), szczegóły spółki (świece, arkusz, taśma, fundamenty, wiadomości), układ wykresu (każda świeca mieści się w polu), przelot kamery i przelot powitalny, tłum na rynku (liczba, pętle spacerów), gaszenie tabliczek pod panelami, podpisy osi pod plakietkami, parametry adresu |
+| jednostkowe + fast-check | trasy (łuki, prawy pas, brak skoków), kolumny ciężarówek, faza statku bez przeskoków między dniami, pora dnia, migawka z prawdziwej sesji (strajk, sztorm, wypadek), szczegóły spółki (świece, arkusz, taśma, fundamenty, wiadomości), układ wykresu (każda świeca mieści się w polu), przelot kamery i przelot powitalny, tłum na rynku (liczba, pętle spacerów), gaszenie tabliczek pod panelami, podpisy osi pod plakietkami, parametry adresu, mirror i strumień Parkietu (na Parkiecie w pamięci z tym samym silnikiem) |
 | mutacyjne (Stryker) | logika `src/sim` i `src/world`, próg 90% |
-| e2e (Playwright) | scena bez błędów konsoli, tempo i pauza, to samo ziarno = ten sam indeks, ekspozycja w dzień i w nocy, panel z notowania, z kliknięcia w budynek i z adresu (strajk), Escape i powrót fokusu, pasek wiadomości, panel od dołu na telefonie |
+| e2e (Playwright) | scena bez błędów konsoli, tempo i pauza, to samo ziarno = ten sam indeks, ekspozycja w dzień i w nocy, panel z notowania, z kliknięcia w budynek i z adresu (strajk), Escape i powrót fokusu, pasek wiadomości, panel od dołu na telefonie, tryb połączony z prawdziwym Parkietem (, w CI zawsze) |
+
+## Tryb połączony z Parkietem
+
+Silnik Hossy to port [Parkietu](https://github.com/Sitkowski01/parkiet-exchange), więc oba
+silniki powinny na tych samych zleceniach dać to samo. Tryb połączony sprawdza to na żywo:
+z `?parkiet` każde zlecenie i anulowanie botów idzie też do prawdziwego Parkietu (Java,
+Spring, Postgres, Kafka), a odpowiedź jest porównywana z wynikiem silnika w przeglądarce.
+Kursy oraz arkusz i taśma w panelu przychodzą wtedy ze strumienia `/ws/market` Parkietu.
+
+```mermaid
+flowchart LR
+  boty[Boty i gospodarka<br/>Web Worker] -->|zlecenie| silnik[Silnik TS]
+  boty -->|to samo zlecenie<br/>POST /api/instruments/RUD/orders| parkiet[Parkiet<br/>Java]
+  silnik -->|zdarzenia| porownanie{zgodne?}
+  parkiet -->|zdarzenia| porownanie
+  parkiet -->|/ws/market: arkusz, transakcje| scena[Scena i panel]
+  porownanie -->|licznik w pasku| scena
+```
+
+- **Kolejka na spółkę.** Kolejność liczy się tylko w obrębie arkusza, więc sześć spółek idzie
+  równolegle, a w każdej zlecenia jadą po kolei. Numery zleceń Parkietu są inne niż lokalne,
+  więc mirror tłumaczy je przy anulowaniu i w porównaniu transakcji.
+- **Hamulec.** Przy 16× boty składają ok. 700 poleceń na sekundę. Gdy w kolejkach czeka
+  ponad 600, zegar symulacji stoi, aż Parkiet nadgoni, żeby scena nie uciekła giełdzie.
+- **Uczciwy start.** Parkiet musi znać sześć spółek i mieć puste arkusze, inaczej zlecenia
+  z poprzedniej sesji kojarzyłyby się z nowymi. Wtedy pasek mówi „brak połączenia” i dlaczego.
+- **Awaria łącza.** Zgubione zlecenie (sieć, HTTP, limit 5 s) mogłoby być w arkuszu przeglądarki,
+  a nie w Parkiecie, więc pierwszy taki błąd kończy porównanie, zamiast liczyć różnice z winy sieci.
+  Scena bierze dane z Parkietu tylko przy otwartym strumieniu i bez różnic, inaczej wraca do
+  silnika w przeglądarce; strumień wznawia się sam.
+- **Proxy.** Parkiet nie wystawia CORS, więc przeglądarka rozmawia z nim przez Vite (`/parkiet`).
+
+Wynik: test całej sesji przez mirror (ponad tysiąc poleceń, arkusze obu silników identyczne),
+e2e z prawdziwym Parkietem w CI (po pauzie najlepsze oferty w panelu = arkusz z REST Parkietu)
+i ręcznie: ponad 9 tys. poleceń przez przeglądarkę, zero różnic.
+
+```bash
+docker compose -f parkiet/compose.yaml up -d   # Parkiet ze spółkami miasteczka, port 8088
+pnpm --filter @hossa/web dev                   # potem http://localhost:5173/?parkiet
+docker compose -f parkiet/compose.yaml restart parkiet   # przed kolejną sesją: puste arkusze
+```
 
 ## Uruchomienie
 
