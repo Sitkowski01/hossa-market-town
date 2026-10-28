@@ -21,6 +21,9 @@ export type LinkState = "connecting" | "ready" | "error";
  */
 export const MAX_BACKLOG = 600;
 
+/** Tyle czeka jedno zadanie; zawieszony Parkiet nie moze zatrzymac kolejek (i zegara) na zawsze. */
+export const TIMEOUT_MS = 5000;
+
 export interface LinkStats {
   readonly state: LinkState;
   /** Polecenia wyslane do Parkietu (zlecenia i anulowania). */
@@ -30,7 +33,10 @@ export interface LinkStats {
   readonly mismatched: number;
   /** Polecenia czekajace w kolejkach — rosnie, gdy Parkiet nie nadaza za tempem. */
   readonly pending: number;
-  /** Bledy sieci albo HTTP — polecenie nie doszlo do porownania. */
+  /**
+   * Bledy sieci, HTTP albo limitu czasu. Po pierwszym mirror staje: zgubione zlecenie mogloby byc
+   * w arkuszu przegladarki, a nie w Parkiecie, i kazde nastepne porownanie wyszloby rozne z winy sieci.
+   */
   readonly failed: number;
   readonly lastError?: string;
 }
@@ -81,6 +87,7 @@ export class ParkietMirror {
     private readonly base: string,
     private readonly tag: string,
     private readonly http: Http = (url, init) => fetch(url, init),
+    private readonly timeoutMs = TIMEOUT_MS,
   ) {
     this.ready = this.connect();
   }
@@ -95,10 +102,11 @@ export class ParkietMirror {
     const previous = this.queues.get(command.ticker) ?? Promise.resolve();
     const next = previous
       .then(() => this.ready)
-      .then((ok) => (ok ? this.run(command) : undefined))
+      .then((ok) => (ok && this.state === "ready" ? this.run(command) : undefined))
       .catch((error: unknown) => {
         this.failed += 1;
-        this.lastError = error instanceof Error ? error.message : String(error);
+        this.state = "error";
+        this.lastError = `${error instanceof Error ? error.message : String(error)} — porównanie przerwane`;
       })
       .finally(() => {
         this.pending -= 1;
@@ -180,7 +188,7 @@ export class ParkietMirror {
     const order = this.resting.get(orderId);
     this.resting.delete(orderId);
     if (!order) throw new Error(`zlecenie ${String(orderId)} nie doszło wcześniej do Parkietu`);
-    const reply = await this.http(`${this.base}/api/instruments/${ticker}/orders/${String(order.remote)}?runId=${String(this.runId)}`, { method: "DELETE" });
+    const reply = await this.request(`${this.base}/api/instruments/${ticker}/orders/${String(order.remote)}?runId=${String(this.runId)}`, { method: "DELETE" });
     if (reply.ok) this.matched += 1;
     else if (reply.status === 404) this.differs(`${ticker}: Parkiet nie miał już zlecenia ${String(orderId)} do anulowania`);
     else throw new Error(`HTTP ${String(reply.status)} przy anulowaniu w ${ticker}`);
@@ -205,8 +213,12 @@ export class ParkietMirror {
     if (order.remaining <= 0) this.resting.delete(orderId);
   }
 
+  private request(url: string, init: RequestInit = {}): Promise<Response> {
+    return this.http(url, { ...init, signal: AbortSignal.timeout(this.timeoutMs) });
+  }
+
   private async json(url: string, init?: RequestInit): Promise<unknown> {
-    const reply = await this.http(url, init);
+    const reply = await this.request(url, init);
     if (!reply.ok) throw new Error(`HTTP ${String(reply.status)} z ${url.replace(this.base, "")}`);
     // zla sciezka: serwer stron oddaje index.html zamiast API
     if (!reply.headers.get("content-type")?.includes("json")) throw new Error(`pod ${this.base} nie ma Parkietu`);

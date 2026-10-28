@@ -102,12 +102,13 @@ describe("ParkietMirror", () => {
     mirror.push(submit("STW", 2, "BUY", 3900, 5, rested(2, "BUY", 3900, 5)));
     mirror.push({ kind: "submit", ticker: "STW", orderId: 3, side: "SELL", type: "MARKET", price: 0, quantity: 5, events: [{ kind: "TRADE", makerOrderId: 1, takerOrderId: 3, takerSide: "SELL", price: 4000, quantity: 5 }] });
     mirror.push({ kind: "cancel", ticker: "STW", orderId: 2 });
-    mirror.push({ kind: "cancel", ticker: "STW", orderId: 1 }); // juz zrealizowane: nie ma czego wysylac
-    mirror.push({ kind: "cancel", ticker: "STW", orderId: 2 }); // drugi raz: numer zapomniany, DELETE nie idzie
+    // zrealizowanego zlecenia mirror juz nie pamieta: anulowanie go to blad, ktory zatrzymuje porownanie
+    mirror.push({ kind: "cancel", ticker: "STW", orderId: 1 });
+    mirror.push({ kind: "cancel", ticker: "STW", orderId: 2 }); // po zatrzymaniu nic juz nie idzie
     await mirror.idle();
     expect(parkiet.requests).toContain("DELETE /api/instruments/STW/orders/51?runId=3");
-    expect(mirror.stats()).toMatchObject({ sent: 6, matched: 4, mismatched: 0, failed: 2 });
-    expect(mirror.stats().lastError).toContain("zlecenie 2 nie doszło");
+    expect(mirror.stats()).toMatchObject({ state: "error", sent: 5, matched: 4, mismatched: 0, failed: 1, pending: 0 });
+    expect(mirror.stats().lastError).toBe("zlecenie 1 nie doszło wcześniej do Parkietu — porównanie przerwane");
     expect(parkiet.requests.filter((r) => r.startsWith("DELETE"))).toHaveLength(1);
   });
 
@@ -152,14 +153,15 @@ describe("ParkietMirror", () => {
     expect(used.requests.filter((r) => r.startsWith("POST"))).toEqual([]);
   });
 
-  it("keeps going after an HTTP error and reports it", async () => {
+  it("stops comparing after a lost command, so one network error is not counted as engine differences", async () => {
     let calls = 0;
     const parkiet = fakeParkiet();
     const mirror = new ParkietMirror(BASE, "h", (url, init) => (init?.method === "POST" && ++calls === 1 ? Promise.resolve(new Response("{}", { status: 503 })) : parkiet.http(url, init)));
     mirror.push(submit("MTK", 1, "BUY", 7000, 1, []));
     mirror.push(submit("MTK", 2, "BUY", 7000, 1, rested(2, "BUY", 7000, 1)));
     await mirror.idle();
-    expect(mirror.stats()).toMatchObject({ sent: 2, matched: 1, failed: 1, lastError: "HTTP 503 z /api/instruments/MTK/orders" });
+    expect(mirror.stats()).toMatchObject({ state: "error", sent: 1, matched: 0, mismatched: 0, failed: 1, pending: 0, lastError: "HTTP 503 z /api/instruments/MTK/orders — porównanie przerwane" });
+    expect(parkiet.requests.filter((r) => r.startsWith("POST"))).toEqual([]);
   });
 
   it("asks the simulation to wait while more than MAX_BACKLOG commands are queued", async () => {
@@ -195,6 +197,20 @@ describe("ParkietMirror", () => {
     mirror.push(submit("GRS", 1, "SELL", 7300, 1, rested(1, "SELL", 7300, 1)));
     mirror.push({ kind: "cancel", ticker: "GRS", orderId: 1 });
     await mirror.idle();
-    expect(mirror.stats()).toMatchObject({ matched: 1, failed: 1, lastError: "HTTP 500 przy anulowaniu w GRS" });
+    expect(mirror.stats()).toMatchObject({ state: "error", matched: 1, failed: 1, lastError: "HTTP 500 przy anulowaniu w GRS — porównanie przerwane" });
+  });
+
+  it("gives up on a request that hangs instead of stopping the queues for good", async () => {
+    const hanging: Http = (_url, init) =>
+      new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => {
+          reject(init.signal?.reason as Error);
+        });
+      });
+    const mirror = new ParkietMirror(BASE, "h", hanging, 20);
+    mirror.push(submit("RUD", 1, "BUY", 3000, 1, rested(1, "BUY", 3000, 1)));
+    await mirror.idle();
+    expect(mirror.stats()).toMatchObject({ state: "error", pending: 0 });
+    expect(mirror.stats().lastError).toMatch(/timeout/i);
   });
 });
