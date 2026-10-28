@@ -45,6 +45,13 @@ export function createProps(model: Model, scene: THREE.Scene): Props {
   const lamp = model.material("lampa");
   lamp.emissive.copy(LAMP);
   const windows = model.material("okna");
+  // noca morze na prawie czarnym tle strony bylo czarna dziura: slaba granatowa poswiata jak odbity ksiezyc
+  let seaMaterial: THREE.MeshStandardMaterial | undefined;
+  model.node("morze").traverse((o) => {
+    if (!seaMaterial && o instanceof THREE.Mesh) seaMaterial = o.material as THREE.MeshStandardMaterial;
+  });
+  const sea = seaMaterial as THREE.MeshStandardMaterial;
+  sea.emissive.set(0x1b3a5c);
   windows.emissive.copy(WINDOW);
   windows.emissiveMap = windows.map;
 
@@ -84,6 +91,7 @@ export function createProps(model: Model, scene: THREE.Scene): Props {
       const night = light.lampsOn ? 1 - light.day : 0;
       lamp.emissiveIntensity = night * BLOOM_THRESHOLD * 2.2;
       windows.emissiveIntensity = night * 0.9;
+      sea.emissiveIntensity = night * 0.55;
       const blink = (light.lampsOn || storm) && Math.floor(now / 1000) % 4 === 0 ? 1 : 0;
       // blysk ma byc widac na wodzie, ale nie jako plama wieksza niz port
       beacon.intensity = 350 * blink;
