@@ -366,47 +366,51 @@ button:focus-visible {
 
 .notowania {
   position: fixed;
-  top: 68px;
+  top: calc(var(--hud-dol, 52px) + 8px);
   left: 12px;
   display: grid;
-  width: 236px;
+  width: 244px;
   padding: 6px;
+  font-family: var(--mono);
 }
 
 .notowania button {
   display: grid;
-  grid-template-columns: 3.2em 1fr auto;
+  grid-template-columns: 3.6em 1fr auto;
   align-items: center;
   gap: 8px;
   min-height: 36px;
   padding: 4px 8px;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: 7px;
   background: transparent;
   color: var(--tekst);
   font: inherit;
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   text-align: left;
   cursor: pointer;
+  transition: background-color 0.15s;
 }
 
 .notowania button:hover,
 .notowania button[data-podswietlona] {
-  background: rgb(147 164 187 / 10%);
-}
-
-.notowania button {
-  transition: background-color 0.15s;
+  background: rgb(148 163 184 / 8%);
 }
 
 .notowania button[aria-pressed="true"] {
-  border-color: var(--krawedz);
-  background: #16233a;
+  border-color: var(--krawedz-mocna);
+  background: var(--wcisniety);
 }
 
 .notowanie-ticker {
-  font-weight: 600;
-  color: var(--tekst);
+  font-weight: 700;
+  color: var(--tekst-jasny);
+}
+
+.notowanie-ticker::before {
+  content: "$";
+  color: var(--wyblakly);
+  font-weight: 400;
 }
 
 .notowanie-cena {
@@ -414,10 +418,38 @@ button:focus-visible {
   text-align: right;
 }
 
+.notowanie-cena::after {
+  content: " zł";
+  color: var(--przygaszony);
+}
+
 .notowanie-zmiana {
-  min-width: 4.6em;
+  min-width: 5.4em;
+  padding: 1px 6px;
+  border-radius: 5px;
   text-align: right;
-  font-size: 0.85rem;
+  font-size: 0.76rem;
+  color: var(--przygaszony);
+}
+
+.notowania button[data-kierunek="wzrost"] .notowanie-zmiana {
+  background: var(--wzrost-tlo);
+  color: var(--wzrost-tekst);
+}
+
+.notowania button[data-kierunek="spadek"] .notowanie-zmiana {
+  background: var(--spadek-tlo);
+  color: var(--spadek-tekst);
+}
+
+.notowania button[data-kierunek="wzrost"] .notowanie-zmiana::before {
+  content: "▲ ";
+  font-size: 0.8em;
+}
+
+.notowania button[data-kierunek="spadek"] .notowanie-zmiana::before {
+  content: "▼ ";
+  font-size: 0.8em;
 }
 
 /* --- pasek wiadomosci --- */
@@ -430,6 +462,7 @@ button:focus-visible {
   align-items: center;
   gap: 12px;
   max-width: min(760px, calc(100% - 24px));
+  box-sizing: border-box;
   padding: 6px 8px 6px 14px;
 }
 
@@ -441,13 +474,17 @@ body[data-panel] .wiadomosci {
   max-width: min(760px, calc(100% - var(--panel) - 48px));
 }
 
+/* otwarty panel nie moze przykryc paska (na tablecie pauza lezala pod panelem) — pasek sie zawija */
+body[data-panel] .hud {
+  max-width: calc(100% - var(--panel) - 36px);
+}
+
 .wiadomosci-etykieta {
   flex: none;
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
+  font: 500 0.7rem/1 var(--mono);
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--przygaszony);
+  color: var(--wyblakly);
 }
 
 .wiadomosci-tekst {
@@ -460,7 +497,7 @@ body[data-panel] .wiadomosci {
   background: transparent;
   color: var(--tekst);
   font: inherit;
-  font-size: 0.92rem;
+  font-size: 0.9rem;
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -474,9 +511,9 @@ body[data-panel] .wiadomosci {
 .wiadomosci-tekst::before {
   content: "";
   display: inline-block;
-  width: 8px;
-  height: 8px;
-  margin-right: 8px;
+  width: 7px;
+  height: 7px;
+  margin-right: 9px;
   border-radius: 50%;
   background: var(--przygaszony);
   vertical-align: 1px;
@@ -484,14 +521,16 @@ body[data-panel] .wiadomosci {
 
 .wiadomosci-tekst[data-kierunek="wzrost"]::before {
   background: var(--wzrost);
+  box-shadow: 0 0 6px var(--wzrost);
 }
 
 .wiadomosci-tekst[data-kierunek="spadek"]::before {
   background: var(--spadek);
+  box-shadow: 0 0 6px var(--spadek);
 }
 
 .wiadomosci-tekst:hover:not(:disabled) {
-  background: rgb(147 164 187 / 10%);
+  background: rgb(148 163 184 / 8%);
 }
 
 .wiadomosci-tekst:disabled {

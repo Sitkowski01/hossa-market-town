@@ -14,6 +14,9 @@ export interface Quotes {
  * Tablica notowan: szesc spolek z kursem i zmiana od otwarcia. Kazda pozycja to przycisk —
  * otwiera panel spolki bez celowania w budynek, takze z klawiatury i na malym ekranie.
  */
+const FLASH = { wzrost: "#34d399", spadek: "#f87171", "": "#f8fafc" } as const;
+const still = matchMedia("(prefers-reduced-motion: reduce)");
+
 export function createQuotes(onPick: (ticker: Ticker, from: HTMLElement) => void, onHover: (ticker: Ticker | null) => void = () => undefined): Quotes {
   const nav = document.createElement("nav");
   nav.className = "notowania";
@@ -54,9 +57,13 @@ export function createQuotes(onPick: (ticker: Ticker, from: HTMLElement) => void
         setPressed(r.button, selected === r.ticker);
         const text = `${price(c.price)}|${change(pct)}`;
         if (text === r.text) continue;
+        // zmiana kursu (nie pierwsze wypelnienie): cena na chwile zapala sie kolorem ruchu, jak na
+        // tablicy maklerskiej; caly wiersz migalby przy tempie 1x przez jedna trzecia czasu
+        if (r.text !== "" && !still.matches) r.price.animate([{ color: FLASH[trend(pct)] }, {}], { duration: 600, easing: "ease-out" });
         r.text = text;
         r.button.title = c.name;
-        r.price.textContent = price(c.price);
+        // jednostka z CSS: na komputerze "zl" przy cenie, na waskim kafelku telefonu sama liczba
+        r.price.textContent = price(c.price).replace(/ zł$/, "");
         r.change.textContent = change(pct);
         r.button.dataset.kierunek = trend(pct);
       }
