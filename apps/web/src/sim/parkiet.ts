@@ -14,6 +14,13 @@ import type { Command } from "@hossa/market";
 
 export type LinkState = "connecting" | "ready" | "error";
 
+/**
+ * Tyle polecen moze czekac w kolejkach, zanim symulacja stanie i poczeka na Parkiet. Przy tempie
+ * 16x boty skladaja ok. 700 polecen na sekunde, a przez proxy przechodzi mniej — bez hamulca
+ * scena uciekalaby gieldzie o minuty, a notowania z Parkietu bylyby coraz starsze.
+ */
+export const MAX_BACKLOG = 600;
+
 export interface LinkStats {
   readonly state: LinkState;
   /** Polecenia wyslane do Parkietu (zlecenia i anulowania). */
@@ -97,6 +104,11 @@ export class ParkietMirror {
         this.pending -= 1;
       });
     this.queues.set(command.ticker, next);
+  }
+
+  /** Czy kolejki sa tak dlugie, ze symulacja powinna poczekac. */
+  busy(): boolean {
+    return this.pending > MAX_BACKLOG;
   }
 
   /** Czeka, az wszystkie kolejki sie oproznia (testy i zamykanie). */

@@ -1,6 +1,8 @@
 import type { Ticker } from "@hossa/economy";
-import { Session } from "@hossa/market";
+import { Session, type Command } from "@hossa/market";
 import { SimClock } from "./clock.js";
+import { ParkietMirror } from "./parkiet.js";
+import { ParkietFeed, withParkiet } from "./parkiet-feed.js";
 import type { FromWorker, ToWorker } from "./protocol.js";
 import { Observer } from "./view.js";
 
@@ -20,21 +22,55 @@ let running: { session: Session; clock: SimClock; observer: Observer } | undefin
 let last = 0;
 /** Spolka otwarta w panelu — tylko dla niej worker liczy arkusz, swiece i fundamenty. */
 let focus: Ticker | null = null;
+/** Tryb polaczony: zlecenia ida tez do Parkietu, a notowania wracaja z jego strumienia. */
+let parkiet: { mirror: ParkietMirror; feed: ParkietFeed; streaming: boolean } | undefined;
+
+function connect(base: string, seed: number): ParkietMirror {
+  // tag z czasem: ponowne otwarcie strony z tym samym ziarnem nie powtorzy clientOrderId
+  const mirror = new ParkietMirror(base, `h${String(seed)}-${Date.now().toString(36)}`);
+  const link = { mirror, feed: new ParkietFeed(), streaming: false };
+  const socket = new WebSocket(ParkietFeed.url(new URL(base, self.location.href).href));
+  socket.onopen = () => {
+    link.streaming = true;
+  };
+  socket.onclose = () => {
+    link.streaming = false;
+  };
+  socket.onmessage = (e: MessageEvent<string>) => {
+    link.feed.handle(e.data);
+  };
+  parkiet = link;
+  return mirror;
+}
 
 function loop(): void {
   if (!running) return;
   const { session, clock, observer } = running;
   const now = performance.now();
-  clock.advance(now - last);
+  // Parkiet nie nadaza: czas stoi, az kolejki zlecen sie skurcza (scena tez nie ekstrapoluje)
+  const waiting = parkiet?.mirror.busy() ?? false;
+  clock.advance(waiting ? 0 : now - last);
   last = now;
   while (session.step < clock.stepsDue) session.tick();
-  port.postMessage({ type: "snapshot", snapshot: observer.snapshot(session, clock, focus) });
+  const local = observer.snapshot(session, clock, focus);
+  const snapshot = waiting ? { ...local, ticksPerMs: 0 } : local;
+  port.postMessage({ type: "snapshot", snapshot: parkiet ? withParkiet(snapshot, parkiet.feed, { ...parkiet.mirror.stats(), streaming: parkiet.streaming }) : snapshot });
 }
 
 port.onmessage = (e) => {
   const msg = e.data;
   if (msg.type === "start" && !running) {
-    const session = new Session({ seed: msg.seed });
+    const mirror = msg.parkiet === undefined ? undefined : connect(msg.parkiet, msg.seed);
+    const session = new Session({
+      seed: msg.seed,
+      ...(mirror
+        ? {
+            onCommand: (c: Command) => {
+              mirror.push(c);
+            },
+          }
+        : {}),
+    });
     running = { session, clock: new SimClock(session.stepsPerDay, msg.speed), observer: new Observer(msg.seed) };
     last = performance.now();
     loop();

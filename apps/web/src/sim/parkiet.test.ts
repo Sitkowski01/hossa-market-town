@@ -2,7 +2,7 @@ import { OrderBook, orderRequest, type BookEvent } from "@hossa/engine";
 import { TICKERS, type Ticker } from "@hossa/economy";
 import { Session, type Command } from "@hossa/market";
 import { describe, expect, it } from "vitest";
-import { ParkietMirror, zloty, type Http } from "./parkiet.js";
+import { MAX_BACKLOG, ParkietMirror, zloty, type Http } from "./parkiet.js";
 
 const BASE = "http://parkiet";
 
@@ -150,6 +150,23 @@ describe("ParkietMirror", () => {
     mirror.push(submit("MTK", 2, "BUY", 7000, 1, rested(2, "BUY", 7000, 1)));
     await mirror.idle();
     expect(mirror.stats()).toMatchObject({ sent: 2, matched: 1, failed: 1, lastError: "HTTP 503 z /api/instruments/MTK/orders" });
+  });
+
+  it("asks the simulation to wait while more than MAX_BACKLOG commands are queued", async () => {
+    let release: (value?: unknown) => void = () => undefined;
+    const gate = new Promise((resolve) => {
+      release = resolve;
+    });
+    const parkiet = fakeParkiet();
+    const mirror = new ParkietMirror(BASE, "h", (url, init) => (init?.method === "POST" ? gate.then(() => parkiet.http(url, init)) : parkiet.http(url, init)));
+    for (let id = 1; id <= MAX_BACKLOG; id++) mirror.push(submit("RUD", id, "BUY", 3000, 1, rested(id, "BUY", 3000, 1)));
+    expect(mirror.busy()).toBe(false);
+    mirror.push(submit("RUD", MAX_BACKLOG + 1, "BUY", 3000, 1, rested(MAX_BACKLOG + 1, "BUY", 3000, 1)));
+    expect(mirror.busy()).toBe(true);
+    release();
+    await mirror.idle();
+    expect(mirror.busy()).toBe(false);
+    expect(mirror.stats()).toMatchObject({ sent: MAX_BACKLOG + 1, matched: MAX_BACKLOG + 1, pending: 0 });
   });
 
   it("fails cleanly when Parkiet is down, and reports a broken cancel as an error", async () => {

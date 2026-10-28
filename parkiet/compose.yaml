@@ -1,0 +1,48 @@
+# Tryb polaczony: prawdziwy Parkiet (gielda w Javie, github.com/Sitkowski01/parkiet-exchange)
+# ze spolkami miasteczka zamiast spolek z GPW. Start: docker compose -f parkiet/compose.yaml up -d,
+# potem pnpm --filter @hossa/web dev i adres z ?parkiet. Kafka i Postgres jak w repo Parkietu.
+services:
+  parkiet:
+    image: ghcr.io/sitkowski01/parkiet-exchange:latest
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/exchange
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+      # bez profilu demo: zadnych botow Parkietu, zlecenia skladaja tylko boty Hossy
+      SPRING_PROFILES_ACTIVE: ""
+      # kazdy start od pustych arkuszy, bo sesja Hossy tez zaczyna od zera
+      EXCHANGE_JOURNAL_RESUME: "false"
+      EXCHANGE_SYMBOLS: RUD,STW,MTK,BPT,KSZ,GRS
+    ports:
+      - "${PARKIET_PORT:-8088}:8080"
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: exchange
+      POSTGRES_USER: exchange
+      POSTGRES_PASSWORD: exchange
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "exchange", "-d", "exchange"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  kafka:
+    image: apache/kafka-native:4.2.1
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+      KAFKA_LISTENERS: INTERNAL://:19092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:19092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
