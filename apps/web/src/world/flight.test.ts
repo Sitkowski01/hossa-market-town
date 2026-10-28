@@ -54,6 +54,14 @@ describe("focusPose", () => {
     expect(y).toBeCloseTo(80 * Math.sin(ELEVATION));
   });
 
+  it("kierunek bierze z obu osi poziomych, takze gdy cel nie lezy w zerze", () => {
+    // kamera 10 na wschod i 20 na poludnie od celu: ten sam kierunek (1:2) po przelocie
+    const p = focusPose({ position: [10, 50, 30], target: [0, 0, 10] }, [5, 2, -5], 60);
+    const [dx, dz] = [p.position[0] - 5, p.position[2] + 5];
+    expect(dz / dx).toBeCloseTo(2);
+    expect(Math.hypot(dx, dz)).toBeCloseTo(60 * Math.cos(ELEVATION));
+  });
+
   it("z kamery prosto z gory patrzy od poludnia", () => {
     const p = focusPose({ position: [5, 300, 5], target: [5, 0, 5] }, [0, 0, 0], 50);
     expect(p.position[0]).toBeCloseTo(0);
@@ -107,6 +115,16 @@ describe("introPose", () => {
     expect(p.position[0]).toBeCloseTo(10 - 50);
     expect(p.position[1]).toBeCloseTo(100);
     expect(p.position[2]).toBeCloseTo(0);
+  });
+
+  it("obraca o zadany kat wokol celu lezacego poza zerem, w kazdej osi", () => {
+    const from = { position: [20, 40, 5] as const, target: [7, 3, -11] as const };
+    const p = introPose(from, 1.5, 0.3);
+    const [x, y, z] = p.position;
+    // w poziomie: promien 1,5 raza wiekszy, kat (atan2 z, x) wiekszy o 0,3
+    expect(Math.hypot(x - 7, z + 11)).toBeCloseTo(1.5 * Math.hypot(13, 16));
+    expect(Math.atan2(z + 11, x - 7)).toBeCloseTo(Math.atan2(16, 13) + 0.3);
+    expect(y).toBeCloseTo(3 + 37 * 1.5);
   });
 
   it("domyslnie startuje 1,6 raza dalej i z boku", () => {
