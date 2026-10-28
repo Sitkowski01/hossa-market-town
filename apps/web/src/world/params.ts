@@ -37,8 +37,9 @@ export function readParams(search: string, random: () => number = Math.random): 
   const name = q.get("spolka")?.toUpperCase() ?? "";
   // sam ticker, bez czesci budynku: "STW" tak, "STW_suwnica" nie
   const company = tickerOf(name) === name ? name : null;
-  // tylko sciezka na tym serwerze: link od obcego nie skieruje zlecen pod dowolny adres
+  // tylko sciezka na tym serwerze z niepustymi segmentami: "//host" i "/" (z ktorego mirror zrobilby
+  // "//api") prowadzilyby na obcy adres, a link od obcego nie moze skierowac tam zlecen
   const link = q.get("parkiet");
-  const parkiet = link === "" ? "/parkiet" : link !== null && /^\/(?!\/)[\w/-]*$/.test(link) ? link : undefined;
+  const parkiet = link === "" ? "/parkiet" : link !== null && /^(\/[\w-]+)+$/.test(link) ? link : undefined;
   return { seed, speed, ...(hour === undefined ? {} : { hour }), ...(camera ? { camera } : {}), ...(company ? { company } : {}), ...(parkiet ? { parkiet } : {}) };
 }

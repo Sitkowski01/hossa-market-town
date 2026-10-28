@@ -3,7 +3,9 @@
 # potem pnpm --filter @hossa/web dev i adres z ?parkiet. Kafka i Postgres jak w repo Parkietu.
 services:
   parkiet:
-    image: ghcr.io/sitkowski01/parkiet-exchange:latest
+    # przypiety po digescie: nowa wersja Parkietu nie zmieni wyniku CI Hossy bez zmiany w tym repo
+    # (aktualizacja: docker pull ...:latest, nowy digest z docker image inspect --format "{{json .RepoDigests}}")
+    image: ghcr.io/sitkowski01/parkiet-exchange@sha256:ca40e5c72ce4f124fd593cf5a6c123bb9cec49b0e22e4a1a076b3a33649f6b90
     depends_on:
       postgres:
         condition: service_healthy
