@@ -81,6 +81,19 @@ describe("Economy: calendar", () => {
     expect(days.slice(0, -1).some((d) => d.news.some((n) => n.kind === "WYNIKI"))).toBe(false);
   });
 
+  it("a quarter without dividends stops the dividend income instead of repeating the last one", () => {
+    const e = new Economy(5);
+    const inside = e as unknown as { dividendStream: number; pendingDividend: Record<string, number> };
+    run(e, TECH.daysPerQuarter - 1);
+    expect(inside.dividendStream).toBeGreaterThan(0);
+    run(e, 1); // zamkniecie kwartalu: dywidendy policzone, wyplata nastepnego dnia
+    for (const t of TICKERS) inside.pendingDividend[t] = 0; // kwartal samych strat
+    run(e, 1);
+    expect(inside.dividendStream).toBe(0);
+    run(e, 5); // zwykle dni bez wyplaty nie ruszaja strumienia
+    expect(inside.dividendStream).toBe(0);
+  });
+
   it("holds a central bank meeting every 45 days", () => {
     const days = run(new Economy(6), 135);
     const meetings = days.filter((d) => d.news.some((n) => n.kind === "STOPY")).map((d) => d.day);
@@ -161,6 +174,12 @@ describe("Economy: events change the economy (counterfactual: same seed, with an
   it("gloomy households spend less in the shops", () => {
     const { baseDays, hitDays } = counterfactual(28, 10, { kind: "NASTROJE", ticker: "KSZ", days: 10 }, 5);
     expect(hitDays[2]?.retail ?? 0).toBeLessThan((baseDays[2]?.retail ?? 0) * 0.9);
+  });
+
+  it("shop demand drops with gloomy households and rises in the shopping season", () => {
+    expect(counterfactual(28, 10, { kind: "NASTROJE", ticker: "KSZ", days: 10 }, 5).hit.demand()).toBeLessThan(1);
+    expect(counterfactual(28, 10, { kind: "SWIETA", ticker: "KSZ", days: 10 }, 5).hit.demand()).toBeGreaterThan(1);
+    expect(new Economy(28).demand()).toBe(1); // po rozruchu, ktory jest bez zdarzen
   });
 
   it("a breakdown halves the factory and a new deposit raises the mine for good", () => {

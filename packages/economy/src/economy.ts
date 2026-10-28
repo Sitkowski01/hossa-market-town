@@ -42,6 +42,8 @@ export class Economy {
   private incomeEma = zl(900_000);
   /** Dywidendy rozlozone na dni kwartalu — tyle dziennie mieszkancy licza jako dochod z akcji. */
   private dividendStream = 0;
+  /** Kwartal zamkniety wczoraj: dzisiejsza wyplata (nawet zerowa) wyznacza nowy strumien dywidend. */
+  private payoutDue = false;
   private readonly earningsEma = perTicker(0);
   private readonly quarterProfit = perTicker(0);
   private readonly expectedQuarter = perTicker(0);
@@ -82,6 +84,11 @@ export class Economy {
 
   capacity(t: Ticker): number {
     return this.incidents.capacity(t);
+  }
+
+  /** Sklonnosc mieszkancow do zakupow wzgledem zwyklej (1): mniej przy zlych nastrojach, wiecej w swieta. */
+  demand(): number {
+    return this.incidents.factor("confidence");
   }
 
   activeEffects(): readonly Effect[] {
@@ -177,8 +184,12 @@ export class Economy {
       local += toTown;
       this.pendingDividend[t] = 0;
     }
-    // Mieszkancy wydaja je rozsadnie: do dochodu po 1/90 dziennie przez caly kwartal.
-    if (local > 0) this.dividendStream = local / TECH.daysPerQuarter;
+    // Mieszkancy wydaja je rozsadnie: do dochodu po 1/90 dziennie przez caly kwartal. Kwartal bez
+    // dywidend (same straty) zeruje strumien — inaczej liczyliby dochod, ktorego nie dostali.
+    if (this.payoutDue) {
+      this.dividendStream = local / TECH.daysPerQuarter;
+      this.payoutDue = false;
+    }
     return local;
   }
 
@@ -213,6 +224,7 @@ export class Economy {
       const profit = this.quarterProfit[t];
       news.push(quarterNews(t, this.day, profit, this.expectedQuarter[t], this.quarterOneOff[t]));
       this.pendingDividend[t] = dividend(profit);
+      this.payoutDue = true;
       this.lastQuarterProfit[t] = profit;
       this.quarterProfit[t] = 0;
       this.quarterOneOff[t] = 0;
