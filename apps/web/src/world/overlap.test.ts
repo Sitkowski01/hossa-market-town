@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { covered, fade, lifts } from "./overlap.js";
+import { covered, fade, lifts, nudge, spread } from "./overlap.js";
 
 const panel = { left: 0, top: 0, right: 100, bottom: 50 };
 
@@ -61,5 +61,80 @@ describe("lifts", () => {
     const stack = lifts([r(0, 100), r(10, 110), r(20, 120)]);
     expect(stack).toEqual([60, 30, 0]);
     expect(lifts([r(20, 120), r(0, 100), r(10, 110)])).toEqual([0, 60, 30]);
+  });
+
+  it("stykajace sie bokami nie nachodza, w obu kolejnosciach", () => {
+    expect(lifts([r(0, 100), r(100, 100)])).toEqual([0, 0]);
+    expect(lifts([r(100, 100), r(0, 100)])).toEqual([0, 0]);
+  });
+
+  it("odstep w pionie: tabliczka blizej niz gap nad druga podnosi sie o reszte, dalsza stoi", () => {
+    // nizsza zaczyna sie na 100, odstep 4: dol wyzszej moze siegac najwyzej 96
+    expect(lifts([r(0, 100), r(50, 98 - 36)])).toEqual([0, 2]);
+    expect(lifts([r(0, 100), r(50, 96 - 36)])).toEqual([0, 0]);
+  });
+
+  it("tabliczka pod juz podniesiona: dalej niz gap stoi, blizej idzie nad nia", () => {
+    // B wchodzi nad A (124..160); nizsza tabliczka pod B, z odstepem rownym gap albo mniejszym
+    const a = r(0, 164);
+    const b = r(50, 159);
+    expect(lifts([a, b, { left: 120, top: 164, right: 220, bottom: 186 }])).toEqual([0, 35, 0]);
+    expect(lifts([a, b, { left: 120, top: 160, right: 220, bottom: 186 }])).toEqual([0, 35, 66]);
+  });
+
+  it("podniesiona nad jedna, a potem wepchnieta w wczesniejsza, podnosi sie jeszcze raz", () => {
+    const a = r(0, 164);
+    const b = r(50, 159); // nad A: 124..160
+    const c = r(160, 156); // obok, stoi
+    const d = { left: 120, top: 166, right: 220, bottom: 186 }; // pod B, ale wchodzi na C
+    // nad C (dol na 152) wpada w B — wiec jeszcze nad B (dol na 120): razem 66
+    expect(lifts([a, b, c, d])).toEqual([0, 35, 0, 66]);
+  });
+});
+
+describe("spread", () => {
+  const r = (left: number, top: number) => ({ left, top, right: left + 100, bottom: top + 36 });
+  const all = () => true;
+
+  it("zwykle jak lifts: wyzsza idzie w gore", () => {
+    expect(spread([r(0, 100), r(60, 118)], all)).toEqual([22, 0]);
+    expect(spread([r(0, 100), r(120, 100)], all)).toEqual([0, 0]);
+  });
+
+  it("gdy w gorze wpadlaby pod panel, wyzsza zostaje, a nizsza schodzi w dol", () => {
+    // kopalnia za huta: nad tabliczka kopalni lezy lista notowan (do y = 90)
+    const belowList = (s: { top: number }) => s.top >= 90;
+    expect(spread([r(0, 100), r(10, 120)], belowList)).toEqual([0, -20]);
+  });
+
+  it("przy remisie zostaje w gore", () => {
+    const nothingFits = () => false;
+    expect(spread([r(0, 100), r(10, 120)], nothingFits)).toEqual([20, 0]);
+  });
+
+  it("podniesienia odpowiadaja kolejnosci tabliczek, a w dol bez ujemnego zera", () => {
+    const belowList = (s: { top: number }) => s.top >= 90;
+    expect(spread([r(10, 120), r(0, 100), r(300, 100)], belowList)).toEqual([-20, 0, 0]);
+    expect(Object.is(spread([r(10, 120), r(0, 100), r(300, 100)], belowList)[2], 0)).toBe(true);
+  });
+});
+
+describe("nudge", () => {
+  it("tabliczka mieszczaca sie na ekranie stoi", () => {
+    expect(nudge(200, 50, 400)).toBe(0);
+    expect(nudge(54, 50, 400)).toBe(0);
+    expect(nudge(346, 50, 400)).toBe(0);
+  });
+
+  it("przy krawedzi dosuwa sie do niej z marginesem", () => {
+    expect(nudge(20, 50, 400)).toBe(34);
+    expect(nudge(390, 50, 400)).toBe(-44);
+    expect(nudge(0, 50, 400, 0)).toBe(50);
+    expect(nudge(400, 50, 400, 0)).toBe(-50);
+  });
+
+  it("budynek poza ekranem nie dostaje tabliczki przy krawedzi", () => {
+    expect(nudge(-1, 50, 400)).toBe(0);
+    expect(nudge(401, 50, 400)).toBe(0);
   });
 });

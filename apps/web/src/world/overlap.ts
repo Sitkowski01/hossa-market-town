@@ -47,3 +47,29 @@ export function lifts(signs: readonly Rect[], gap = 4): number[] {
   }
   return out;
 }
+
+/**
+ * Rozsuniecie nachodzacych tabliczek: zwykle wyzsza idzie w gore (`lifts`), ale gdy tam wpadlaby
+ * pod panel albo za krawedz (`fits` = false), wyzsza zostaje, a nizsza schodzi w dol (ujemne
+ * podniesienie). Wygrywa uklad z wieksza liczba widocznych tabliczek, przy remisie — w gore.
+ */
+export function spread(signs: readonly Rect[], fits: (r: Rect) => boolean, gap = 4): number[] {
+  const up = lifts(signs, gap);
+  // w dol to "w gore" w odbiciu pionowym
+  const down = lifts(
+    signs.map((r) => ({ left: r.left, right: r.right, top: -r.bottom, bottom: -r.top })),
+    gap,
+  ).map((d) => 0 - d);
+  const count = (moves: number[]) => signs.filter((r, i) => fits({ ...r, top: r.top - (moves[i] ?? 0), bottom: r.bottom - (moves[i] ?? 0) })).length;
+  return count(down) > count(up) ? down : up;
+}
+
+/**
+ * O ile przesunac w poziomie tabliczke o srodku `x` i polowie szerokosci `half`, zeby zmiescila sie
+ * na ekranie szerokosci `width` (z marginesem). Tylko gdy sam punkt zakotwiczenia jest na ekranie:
+ * budynek przy krawedzi telefonu ma tabliczke dosunieta do niej, a budynek poza kadrem — zadnej.
+ */
+export function nudge(x: number, half: number, width: number, margin = 4): number {
+  if (x < 0 || x > width) return 0;
+  return Math.min(Math.max(x, half + margin), width - half - margin) - x;
+}

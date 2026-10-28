@@ -4,7 +4,7 @@ import type { Snapshot } from "../sim/protocol.js";
 import { TICKERS } from "../world/companies.js";
 import { FONT } from "../fonts.js";
 import { change, price, trend } from "../world/format.js";
-import { covered, fade, lifts, type Rect } from "../world/overlap.js";
+import { covered, fade, nudge, spread, type Rect } from "../world/overlap.js";
 import { BLOOM_THRESHOLD } from "./stage.js";
 import type { Model } from "./model.js";
 
@@ -13,6 +13,11 @@ const UP = "#34d399";
 const DOWN = "#f87171";
 const FLAT = "#94a3b8";
 const SIGN_PX = 130;
+/**
+ * Ile metrow nad kotwica z Blendera wisi tabliczka. Kopalnia stoi w lewym gornym rogu kadru, tuz za
+ * huta: tabliczka nad szczytem wiezy szybu wpadala na komputerze pod liste notowan i gasla.
+ */
+const RAISE: Partial<Record<Ticker, number>> = { RUD: -22 };
 
 export interface Tickers {
   /** Tabliczki nad spolkami — klikalne jak budynki (userData.ticker). */
@@ -43,7 +48,7 @@ export function createTickers(model: Model, scene: THREE.Scene): Tickers {
     const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, depthTest: false, toneMapped: false, sizeAttenuation: false, fog: false }));
     sprite.renderOrder = 10;
     sprite.userData = { ticker: t };
-    sprite.position.copy(model.anchor(`${t}_kurs`)).add(new THREE.Vector3(0, 4, 0));
+    sprite.position.copy(model.anchor(`${t}_kurs`)).add(new THREE.Vector3(0, RAISE[t] ?? 4, 0));
     scene.add(sprite);
     return { ticker: t, sprite, canvas, texture, text: "", grow: 1, lift: 0 };
   });
@@ -64,6 +69,7 @@ export function createTickers(model: Model, scene: THREE.Scene): Tickers {
   // (w pauzie ceny sie nie zmieniaja i tabliczki zostalyby z zastepcza na zawsze)
   void Promise.all([document.fonts.load(`600 30px ${FONT}`), document.fonts.load(`700 30px ${FONT}`)]).then(() => {
     for (const s of signs) s.text = "";
+    ledText = "";
   });
 
   return {
@@ -83,9 +89,18 @@ export function createTickers(model: Model, scene: THREE.Scene): Tickers {
         at.copy(s.sprite.position).project(camera);
         const x = ((at.x + 1) / 2) * viewport.width;
         const y = ((1 - at.y) / 2) * viewport.height;
-        return { left: x - px / 2, right: x + px / 2, top: y - px * 0.1875, bottom: y + px * 0.1875, behind: at.z > 1 };
+        // budynek przy krawedzi (telefon, waski ekran): tabliczka dosuwa sie do niej, zamiast gasnac
+        const dx = nudge(x, px / 2, viewport.width);
+        return { left: x + dx - px / 2, right: x + dx + px / 2, top: y - px * 0.1875, bottom: y + px * 0.1875, behind: at.z > 1, dx };
       });
-      const lift = lifts(rects.filter((r) => !r.behind));
+      // uciete krawedzia ekranu tez gasna — polowa tabliczki to polowa ceny
+      const offScreen = (r: Rect) => r.left < 0 || r.top < 0 || r.right > viewport.width || r.bottom > viewport.height;
+      // rozsuwaja sie tylko tabliczki widoczne: zgaszona pod panelem nie ma czego podnosic nad soba
+      const shown = rects.map((r) => !r.behind && !offScreen(r) && !covered(r, panels));
+      const lift = spread(
+        rects.filter((_, i) => shown[i]),
+        (r) => !offScreen(r) && !covered(r, panels),
+      );
       let visibleIndex = 0;
       for (const [i, s] of signs.entries()) {
         // wyroznienie rosnie i maleje plynnie (ok. 0,15 s), wyrozniona tabliczka jest nad innymi
@@ -93,14 +108,13 @@ export function createTickers(model: Model, scene: THREE.Scene): Tickers {
         s.sprite.renderOrder = s.ticker === hovered ? 11 : 10;
         s.sprite.scale.set(size * s.grow, size * 0.375 * s.grow, 1);
         const base = rects[i] as (typeof rects)[number];
-        const up = base.behind ? 0 : (lift[visibleIndex++] ?? 0);
+        const up = shown[i] ? (lift[visibleIndex++] ?? 0) : 0;
         // podniesienie dochodzi plynnie; center przesuwa sprite w pikselach ekranu, bez ruszania sceny
+        // (w jednostkach wysokosci sprite'a, wiec dzielone przez wysokosc razem z powiekszeniem)
         s.lift += (up - s.lift) * Math.min(1, dt * 10);
-        s.sprite.center.set(0.5, 0.5 - s.lift / (px * 0.375));
+        s.sprite.center.set(0.5 - base.dx / (px * s.grow), 0.5 - s.lift / (px * 0.375 * s.grow));
         const rect = { left: base.left, right: base.right, top: base.top - s.lift, bottom: base.bottom - s.lift };
-        // uciete krawedzia ekranu tez gasna — polowa tabliczki to polowa ceny
-        const offScreen = rect.left < 0 || rect.top < 0 || rect.right > viewport.width || rect.bottom > viewport.height;
-        const hidden = base.behind || offScreen || covered(rect, panels);
+        const hidden = base.behind || offScreen(rect) || covered(rect, panels);
         const material = s.sprite.material;
         material.opacity = fade(material.opacity, hidden ? 0 : 1, dt);
         // niewidoczna tabliczka nie przechwytuje klikniec przeznaczonych dla panelu
