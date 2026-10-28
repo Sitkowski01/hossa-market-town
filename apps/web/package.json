@@ -19,6 +19,7 @@
     "three": "0.186.1"
   },
   "devDependencies": {
+    "@hossa/engine": "workspace:*",
     "@playwright/test": "1.64.1",
     "@stryker-mutator/core": "10.0.0",
     "@stryker-mutator/typescript-checker": "10.0.0",
