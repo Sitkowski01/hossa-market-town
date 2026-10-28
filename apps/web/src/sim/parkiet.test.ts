@@ -19,7 +19,7 @@ function fakeParkiet(options: FakeOptions = {}): { http: Http; books: Map<string
   const books = new Map<string, OrderBook>((options.symbols ?? TICKERS).map((t) => [t, new OrderBook()]));
   const requests: string[] = [];
   let nextId = options.firstId ?? 1;
-  const reply = (body: unknown, status = 200) => Promise.resolve(new Response(JSON.stringify(body), { status }));
+  const reply = (body: unknown, status = 200) => Promise.resolve(new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } }));
   const remote = (e: BookEvent) => {
     switch (e.kind) {
       case "RESTED":
@@ -104,7 +104,7 @@ describe("ParkietMirror", () => {
     await mirror.idle();
     expect(parkiet.requests).toContain("DELETE /api/instruments/STW/orders/51?runId=3");
     expect(mirror.stats()).toMatchObject({ sent: 5, matched: 4, mismatched: 0, failed: 1 });
-    expect(mirror.stats().lastError).toContain("zlecenie 1 nie doszlo");
+    expect(mirror.stats().lastError).toContain("zlecenie 1 nie doszło");
   });
 
   it("notices when Parkiet answers differently than the engine in the browser", async () => {
@@ -114,7 +114,7 @@ describe("ParkietMirror", () => {
     mirror.push(submit("BPT", 2, "BUY", 5000, 3, [{ kind: "TRADE", makerOrderId: 1, takerOrderId: 2, takerSide: "BUY", price: 5000, quantity: 3 }]));
     await mirror.idle();
     expect(mirror.stats()).toMatchObject({ matched: 1, mismatched: 1 });
-    expect(mirror.stats().lastError).toMatch(/^BPT: zlecenie 2 dalo w Parkiecie .*"price":"50.05".* zamiast .*"price":"50.00"/);
+    expect(mirror.stats().lastError).toMatch(/^BPT: zlecenie 2 dało w Parkiecie .*"price":"50.05".* zamiast .*"price":"50.00"/);
   });
 
   it("counts a cancel that Parkiet no longer had as a difference", async () => {
@@ -125,20 +125,20 @@ describe("ParkietMirror", () => {
     parkiet.books.get("KSZ")?.cancel(1);
     mirror.push({ kind: "cancel", ticker: "KSZ", orderId: 1 });
     await mirror.idle();
-    expect(mirror.stats()).toMatchObject({ matched: 1, mismatched: 1, lastError: "KSZ: Parkiet nie mial juz zlecenia 1 do anulowania" });
+    expect(mirror.stats()).toMatchObject({ matched: 1, mismatched: 1, lastError: "KSZ: Parkiet nie miał już zlecenia 1 do anulowania" });
   });
 
   it("refuses to mirror into a Parkiet without the town's companies or with orders left from another session", async () => {
     const strange = new ParkietMirror(BASE, "h", fakeParkiet({ symbols: ["RUD", "CDR"] }).http);
     await strange.idle();
-    expect(strange.stats()).toMatchObject({ state: "error", lastError: "Parkiet nie zna spolek STW, MTK, BPT, KSZ, GRS" });
+    expect(strange.stats()).toMatchObject({ state: "error", lastError: "Parkiet nie zna spółek STW, MTK, BPT, KSZ, GRS" });
 
     const used = fakeParkiet();
     used.books.get("GRS")?.submit(orderRequest(1, "BUY", "LIMIT", 100, 1));
     const mirror = new ParkietMirror(BASE, "h", used.http);
     mirror.push(submit("RUD", 1, "BUY", 3000, 1, rested(1, "BUY", 3000, 1)));
     await mirror.idle();
-    expect(mirror.stats()).toMatchObject({ state: "error", sent: 0, pending: 0, lastError: "arkusze Parkietu nie sa puste — zrestartuj kontener" });
+    expect(mirror.stats()).toMatchObject({ state: "error", sent: 0, pending: 0, lastError: "arkusze Parkietu nie są puste — zrestartuj kontener" });
     expect(used.requests.filter((r) => r.startsWith("POST"))).toEqual([]);
   });
 
@@ -167,6 +167,12 @@ describe("ParkietMirror", () => {
     await mirror.idle();
     expect(mirror.busy()).toBe(false);
     expect(mirror.stats()).toMatchObject({ sent: MAX_BACKLOG + 1, matched: MAX_BACKLOG + 1, pending: 0 });
+  });
+
+  it("says so when the address serves a web page instead of Parkiet's API", async () => {
+    const page = new ParkietMirror(BASE, "h", () => Promise.resolve(new Response("<!doctype html>", { headers: { "content-type": "text/html" } })));
+    await page.idle();
+    expect(page.stats()).toMatchObject({ state: "error", lastError: "pod http://parkiet nie ma Parkietu" });
   });
 
   it("fails cleanly when Parkiet is down, and reports a broken cancel as an error", async () => {

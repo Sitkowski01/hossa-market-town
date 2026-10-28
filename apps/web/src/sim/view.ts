@@ -5,8 +5,8 @@ import type { SimClock } from "./clock.js";
 import { BARS_SHOWN, type CompanyView, type Detail, type Dispatch, type Headline, type Incident, type Route, type Snapshot, type Yards } from "./protocol.js";
 
 const NEWS_KEPT = 8;
-const DEPTH_LEVELS = 8;
-const TAPE_SHOWN = 12;
+export const DEPTH_LEVELS = 8;
+export const TAPE_SHOWN = 12;
 const COMPANY_NEWS = 5;
 /** Ile ostatnich wiadomosci sesji przeszukuje panel spolki (kilka tygodni gry). */
 export const NEWS_SCANNED = 200;

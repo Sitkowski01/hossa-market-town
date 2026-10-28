@@ -1,5 +1,6 @@
 import { TICKERS, type Ticker } from "@hossa/economy";
 import type { BookLevel, CompanyView, Link, Print, Snapshot } from "./protocol.js";
+import { DEPTH_LEVELS, TAPE_SHOWN } from "./view.js";
 
 /**
  * Notowania z prawdziwego Parkietu: strumien `/ws/market` (obraz arkusza co ~100 ms i kazda
@@ -83,6 +84,6 @@ export function withParkiet(snapshot: Snapshot, feed: ParkietFeed, link: Link): 
   const companies = {} as Record<Ticker, CompanyView>;
   for (const t of TICKERS) companies[t] = { ...snapshot.companies[t], price: feed.quote(t).last ?? snapshot.companies[t].price };
   const quote = snapshot.detail && feed.quote(snapshot.detail.ticker);
-  const detail = snapshot.detail && quote && { ...snapshot.detail, bids: quote.bids, asks: quote.asks, tape: quote.tape };
+  const detail = snapshot.detail && quote && { ...snapshot.detail, bids: quote.bids.slice(0, DEPTH_LEVELS), asks: quote.asks.slice(0, DEPTH_LEVELS), tape: quote.tape.slice(-TAPE_SHOWN) };
   return { ...snapshot, companies, ...(detail ? { detail } : {}), link };
 }

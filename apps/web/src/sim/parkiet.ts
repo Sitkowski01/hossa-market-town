@@ -125,10 +125,10 @@ export class ParkietMirror {
     try {
       const symbols = (await this.json(`${this.base}/api/instruments`)) as string[];
       const missing = TICKERS.filter((t) => !symbols.includes(t));
-      if (missing.length > 0) throw new Error(`Parkiet nie zna spolek ${missing.join(", ")}`);
+      if (missing.length > 0) throw new Error(`Parkiet nie zna spółek ${missing.join(", ")}`);
       for (const t of TICKERS) {
         const book = (await this.json(`${this.base}/api/instruments/${t}/book`)) as BookReply;
-        if (book.bids.length + book.asks.length > 0) throw new Error("arkusze Parkietu nie sa puste — zrestartuj kontener");
+        if (book.bids.length + book.asks.length > 0) throw new Error("arkusze Parkietu nie są puste — zrestartuj kontener");
       }
       this.state = "ready";
       return true;
@@ -179,10 +179,10 @@ export class ParkietMirror {
   private async cancel(ticker: Ticker, orderId: number): Promise<void> {
     const order = this.resting.get(orderId);
     this.resting.delete(orderId);
-    if (!order) throw new Error(`zlecenie ${String(orderId)} nie doszlo wczesniej do Parkietu`);
+    if (!order) throw new Error(`zlecenie ${String(orderId)} nie doszło wcześniej do Parkietu`);
     const reply = await this.http(`${this.base}/api/instruments/${ticker}/orders/${String(order.remote)}?runId=${String(this.runId)}`, { method: "DELETE" });
     if (reply.ok) this.matched += 1;
-    else if (reply.status === 404) this.differs(`${ticker}: Parkiet nie mial juz zlecenia ${String(orderId)} do anulowania`);
+    else if (reply.status === 404) this.differs(`${ticker}: Parkiet nie miał już zlecenia ${String(orderId)} do anulowania`);
     else throw new Error(`HTTP ${String(reply.status)} przy anulowaniu w ${ticker}`);
   }
 
@@ -190,7 +190,7 @@ export class ParkietMirror {
     // porownanie po kluczach w stalej kolejnosci: JSON z Javy moze miec pola w innym porzadku
     const canonical = (events: readonly RemoteEvent[]) => JSON.stringify(events.map((e) => Object.fromEntries(Object.entries(e).sort(([a], [b]) => a.localeCompare(b)))));
     if (canonical(expected) === canonical(actual)) this.matched += 1;
-    else this.differs(`${command.ticker}: zlecenie ${String(command.orderId)} dalo w Parkiecie ${canonical(actual)} zamiast ${canonical(expected)}`);
+    else this.differs(`${command.ticker}: zlecenie ${String(command.orderId)} dało w Parkiecie ${canonical(actual)} zamiast ${canonical(expected)}`);
   }
 
   private differs(message: string): void {
@@ -208,6 +208,8 @@ export class ParkietMirror {
   private async json(url: string, init?: RequestInit): Promise<unknown> {
     const reply = await this.http(url, init);
     if (!reply.ok) throw new Error(`HTTP ${String(reply.status)} z ${url.replace(this.base, "")}`);
+    // zla sciezka: serwer stron oddaje index.html zamiast API
+    if (!reply.headers.get("content-type")?.includes("json")) throw new Error(`pod ${this.base} nie ma Parkietu`);
     return reply.json();
   }
 }

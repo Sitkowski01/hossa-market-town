@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { SimClock } from "./clock.js";
 import { ParkietFeed, grosze, withParkiet } from "./parkiet-feed.js";
 import type { Link } from "./protocol.js";
-import { Observer } from "./view.js";
+import { DEPTH_LEVELS, Observer, TAPE_SHOWN } from "./view.js";
 
 const book = (symbol: string, sequence: number, bids: [string, number][], asks: [string, number][]) =>
   JSON.stringify({ type: "book", symbol, sequence, bids: bids.map(([price, quantity]) => ({ price, quantity, orders: 1 })), asks: asks.map(([price, quantity]) => ({ price, quantity, orders: 1 })) });
@@ -83,6 +83,18 @@ describe("withParkiet", () => {
     expect(mixed.detail).toEqual({ ...local.detail, bids: [{ price: 3000, quantity: 9 }], asks: [{ price: 3010, quantity: 2 }], tape: [{ seq: 1, price: 3010, quantity: 2, side: "BUY" }] });
     expect(mixed.link).toEqual(link("ready"));
     expect(mixed.index).toBe(local.index);
+  });
+
+  it("shows as many levels and trades as the panel shows for the browser engine", () => {
+    const deep = new ParkietFeed();
+    const many = Array.from({ length: 10 }, (_, i): [string, number] => [(30 - i / 10).toFixed(2), 1]);
+    deep.handle(book("RUD", 1, many, many));
+    for (let i = 2; i < 30; i++) deep.handle(trade("RUD", i, "30.00", i, "BUY"));
+    const mixed = withParkiet(shot("RUD"), deep, link("ready"));
+    expect(mixed.detail?.bids).toHaveLength(DEPTH_LEVELS);
+    expect(mixed.detail?.asks).toHaveLength(DEPTH_LEVELS);
+    expect(mixed.detail?.tape).toHaveLength(TAPE_SHOWN);
+    expect(mixed.detail?.tape.at(-1)?.quantity).toBe(29);
   });
 
   it("without an open panel only the prices change", () => {
