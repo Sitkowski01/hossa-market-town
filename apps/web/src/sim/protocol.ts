@@ -1,5 +1,6 @@
 import type { EventKind, Good, Ticker } from "@hossa/economy";
 import type { ShipPhase } from "../world/traffic.js";
+import type { LinkStats } from "./parkiet.js";
 
 /**
  * Wiadomosci miedzy Web Workerem (gielda i gospodarka) a scena. Scena nie zna silnika:
@@ -78,10 +79,17 @@ export interface Snapshot {
   readonly news: readonly Headline[];
   /** Szczegoly otwartej spolki; brak, gdy panel jest zamkniety. */
   readonly detail?: Detail;
+  /** Tryb polaczony: stan lacza z Parkietem; brak, gdy scena liczy sama. */
+  readonly link?: Link;
+}
+
+export interface Link extends LinkStats {
+  /** Czy strumien notowan /ws/market jest otwarty. */
+  readonly streaming: boolean;
 }
 
 export type ToWorker =
-  | { readonly type: "start"; readonly seed: number; readonly speed: Speed }
+  | { readonly type: "start"; readonly seed: number; readonly speed: Speed; readonly parkiet?: string }
   | { readonly type: "speed"; readonly speed: Speed }
   | { readonly type: "focus"; readonly ticker: Ticker | null };
 

@@ -22,6 +22,12 @@ describe("readParams", () => {
     expect(readParams(`?seed=${seed}`, random).seed).toBe(500_000);
   });
 
+  it("tryb polaczony: sam parametr to /parkiet, inna sciezka na tym serwerze tez, obcy adres nie", () => {
+    expect(readParams("?seed=1&parkiet", random)).toEqual({ seed: 1, speed: 1, parkiet: "/parkiet" });
+    expect(readParams("?seed=1&parkiet=/gielda/v2", random).parkiet).toBe("/gielda/v2");
+    for (const bad of ["https://obcy.pl", "//obcy.pl", "//obcy", "parkiet", "/a?b"]) expect(readParams(`?seed=1&parkiet=${encodeURIComponent(bad)}`, random).parkiet).toBeUndefined();
+  });
+
   it("najwieksze dozwolone ziarno przechodzi", () => {
     expect(readParams("?seed=2147483647", random).seed).toBe(2_147_483_647);
   });

@@ -22,7 +22,7 @@ import { createQuotes } from "./ui/quotes.js";
 import { daylight, hourOf } from "./world/daylight.js";
 import { readParams } from "./world/params.js";
 
-const { seed, speed, hour: fixedHour, camera: view, company } = readParams(location.search);
+const { seed, speed, hour: fixedHour, camera: view, company, parkiet } = readParams(location.search);
 
 const canvas = document.getElementById("scena") as HTMLCanvasElement;
 const stage = createStage(canvas);
@@ -102,7 +102,7 @@ worker.onmessage = (e: MessageEvent<FromWorker>) => {
 };
 
 // symulacja rusza od razu, rownolegle z pobieraniem makiety — klikniete w tym czasie tempo nie ginie
-send({ type: "start", seed, speed });
+send({ type: "start", seed, speed, ...(parkiet ? { parkiet } : {}) });
 
 const loading = document.getElementById("ladowanie");
 const loadingText = loading?.querySelector(".ladowanie-tekst");

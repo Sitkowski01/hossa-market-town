@@ -1,5 +1,5 @@
 import { TICKERS, type Ticker } from "@hossa/economy";
-import type { BookLevel, Print } from "./protocol.js";
+import type { BookLevel, CompanyView, Link, Print, Snapshot } from "./protocol.js";
 
 /**
  * Notowania z prawdziwego Parkietu: strumien `/ws/market` (obraz arkusza co ~100 ms i kazda
@@ -71,4 +71,18 @@ export class ParkietFeed {
       if (quote.tape.length > TAPE) quote.tape.shift();
     }
   }
+}
+
+/**
+ * Migawka sceny z notowaniami z Parkietu: kursy spolek, arkusz i tasma w panelu. Reszta (gospodarka,
+ * wykres, fundamenty) zostaje z przegladarki. Dopoki lacze nie jest gotowe, Parkiet moze miec cudze
+ * zlecenia, wiec jego ceny nie trafiaja na scene.
+ */
+export function withParkiet(snapshot: Snapshot, feed: ParkietFeed, link: Link): Snapshot {
+  if (link.state !== "ready") return { ...snapshot, link };
+  const companies = {} as Record<Ticker, CompanyView>;
+  for (const t of TICKERS) companies[t] = { ...snapshot.companies[t], price: feed.quote(t).last ?? snapshot.companies[t].price };
+  const quote = snapshot.detail && feed.quote(snapshot.detail.ticker);
+  const detail = snapshot.detail && quote && { ...snapshot.detail, bids: quote.bids, asks: quote.asks, tape: quote.tape };
+  return { ...snapshot, companies, ...(detail ? { detail } : {}), link };
 }

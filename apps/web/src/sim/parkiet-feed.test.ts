@@ -1,5 +1,9 @@
+import { Session } from "@hossa/market";
 import { describe, expect, it } from "vitest";
-import { ParkietFeed, grosze } from "./parkiet-feed.js";
+import { SimClock } from "./clock.js";
+import { ParkietFeed, grosze, withParkiet } from "./parkiet-feed.js";
+import type { Link } from "./protocol.js";
+import { Observer } from "./view.js";
 
 const book = (symbol: string, sequence: number, bids: [string, number][], asks: [string, number][]) =>
   JSON.stringify({ type: "book", symbol, sequence, bids: bids.map(([price, quantity]) => ({ price, quantity, orders: 1 })), asks: asks.map(([price, quantity]) => ({ price, quantity, orders: 1 })) });
@@ -59,5 +63,36 @@ describe("ParkietFeed", () => {
     expect(tape).toHaveLength(40);
     expect(tape[0]).toMatchObject({ seq: 6, quantity: 6 });
     expect(tape.at(-1)).toMatchObject({ seq: 45, quantity: 45 });
+  });
+});
+
+describe("withParkiet", () => {
+  const session = new Session({ seed: 3, stepsPerDay: 4 });
+  for (let i = 0; i < 6; i++) session.tick();
+  const shot = (focus: "RUD" | null) => new Observer(3).snapshot(session, new SimClock(4), focus);
+  const link = (state: Link["state"]): Link => ({ state, sent: 10, matched: 10, mismatched: 0, pending: 0, failed: 0, streaming: true });
+  const feed = new ParkietFeed();
+  feed.handle(book("RUD", 4, [["30.00", 9]], [["30.10", 2]]));
+  feed.handle(trade("RUD", 5, "30.10", 2, "BUY"));
+
+  it("takes prices, the book and the tape from Parkiet, and the rest from the browser", () => {
+    const local = shot("RUD");
+    const mixed = withParkiet(local, feed, link("ready"));
+    expect(mixed.companies.RUD).toEqual({ ...local.companies.RUD, price: 3010 });
+    expect(mixed.companies.STW).toEqual(local.companies.STW); // bez transakcji na Parkiecie zostaje lokalna cena
+    expect(mixed.detail).toEqual({ ...local.detail, bids: [{ price: 3000, quantity: 9 }], asks: [{ price: 3010, quantity: 2 }], tape: [{ seq: 1, price: 3010, quantity: 2, side: "BUY" }] });
+    expect(mixed.link).toEqual(link("ready"));
+    expect(mixed.index).toBe(local.index);
+  });
+
+  it("without an open panel only the prices change", () => {
+    const mixed = withParkiet(shot(null), feed, link("ready"));
+    expect(mixed.detail).toBeUndefined();
+    expect(mixed.companies.RUD.price).toBe(3010);
+  });
+
+  it("until the link is ready Parkiet's prices stay off the scene, only the link state is shown", () => {
+    const local = shot("RUD");
+    for (const state of ["connecting", "error"] as const) expect(withParkiet(local, feed, link(state))).toEqual({ ...local, link: link(state) });
   });
 });
