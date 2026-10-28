@@ -5,8 +5,9 @@ import { openTown } from "./helpers.js";
  * Udzial przepalonych pikseli (wszystkie kanaly >= 250) i srednia jasnosc samej makiety (0..255).
  * Canvas jest przezroczysty, a pod nim lezy grafitowe tlo strony — piksele tla (blisko #030712)
  * nie wchodza do sredniej, inaczej mierzylibysmy, ile ekranu zajmuje makieta, a nie jej swiatlo.
+ * Ile kadru zajmuje makieta (`share`) sprawdzamy osobno: czarna plama zlewa sie z tlem i tylko to ja widzi.
  */
-async function exposure(page: Page): Promise<{ blown: number; mean: number }> {
+async function exposure(page: Page): Promise<{ blown: number; mean: number; share: number }> {
   const png = (await page.locator("#scena").screenshot()).toString("base64");
   return page.evaluate(async (data) => {
     const img = new Image();
@@ -28,7 +29,7 @@ async function exposure(page: Page): Promise<{ blown: number; mean: number }> {
       sum += 0.2126 * r + 0.7152 * gr + 0.0722 * b;
       model += 1;
     }
-    return { blown: blown / (px.length / 4), mean: sum / Math.max(1, model) };
+    return { blown: blown / (px.length / 4), mean: sum / Math.max(1, model), share: model / (px.length / 4) };
   }, png);
 }
 
@@ -36,17 +37,20 @@ async function exposure(page: Page): Promise<{ blown: number; mean: number }> {
 test("w poludnie nic sie nie przepala, a obraz nie jest szary", async ({ page }) => {
   await openTown(page, "seed=42&godzina=12&tempo=0");
   await page.waitForTimeout(1500);
-  const { blown, mean } = await exposure(page);
+  const { blown, mean, share } = await exposure(page);
   expect(blown).toBeLessThan(0.02);
   expect(mean).toBeGreaterThan(70);
   expect(mean).toBeLessThan(200);
+  expect(share).toBeGreaterThan(0.5);
 });
 
 test("w nocy makieta jest ciemna, ale widoczna", async ({ page }) => {
   await openTown(page, "seed=42&godzina=1&tempo=0");
   await page.waitForTimeout(1500);
-  const { blown, mean } = await exposure(page);
+  const { blown, mean, share } = await exposure(page);
   expect(blown).toBeLessThan(0.02);
   expect(mean).toBeGreaterThan(8);
   expect(mean).toBeLessThan(60);
+  // makieta, z ktorej zostaly same okna, wypada ze sredniej jako tlo — tu spada ponizej (pomiar: ok. 0,45)
+  expect(share).toBeGreaterThan(0.35);
 });
