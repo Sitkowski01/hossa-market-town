@@ -158,6 +158,21 @@ describe("SymbolMarket bars and tape", () => {
   });
 });
 
+describe("SymbolMarket: cancelling", () => {
+  it("does not cancel another trader's order", () => {
+    const m = new SymbolMarket("RUD", 3000, new OrderIds());
+    const owner = trader("o");
+    const other = trader("x");
+    m.submit(owner, "BUY", "LIMIT", 2990, 5);
+    m.cancel(other, 1);
+    expect(m.book.bestBid()).toBe(2990);
+    expect(owner.resting.has(1)).toBe(true);
+    m.cancel(owner, 1);
+    expect(m.book.bestBid()).toBeUndefined();
+    expect(owner.resting.size).toBe(0);
+  });
+});
+
 describe("SymbolMarket: commands for the connected mode", () => {
   it("reports every order with the rounded price, the clipped quantity and the engine's result", () => {
     const seen: Command[] = [];

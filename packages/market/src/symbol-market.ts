@@ -110,7 +110,12 @@ export class SymbolMarket {
     return events;
   }
 
+  /** Anuluje zlecenie gracza; cudzego nie rusza (inaczej wlasciciel zostalby z martwym numerem). */
   cancel(trader: Trader, orderId: number): void {
+    if (this.owners.get(orderId)?.trader !== trader) {
+      trader.resting.delete(orderId);
+      return;
+    }
     if (this.book.cancel(orderId)) {
       this.owners.delete(orderId);
       this.listener?.({ kind: "cancel", ticker: this.ticker, orderId });
