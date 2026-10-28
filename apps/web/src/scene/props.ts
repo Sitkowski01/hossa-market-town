@@ -55,7 +55,7 @@ export function createProps(model: Model, scene: THREE.Scene): Props {
   windows.emissive.copy(WINDOW);
   windows.emissiveMap = windows.map;
 
-  const beacon = new THREE.PointLight(0xffe2a8, 0, 140, 1.6);
+  const beacon = new THREE.PointLight(0xffe2a8, 0, 90, 1.8);
   beacon.position.copy(model.anchor("BPT_latarnia"));
   const glow = new THREE.Mesh(new THREE.SphereGeometry(0.9, 12, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color(0xffe2a8).multiplyScalar(BLOOM_THRESHOLD * 2) }));
   glow.position.copy(beacon.position);
@@ -93,8 +93,9 @@ export function createProps(model: Model, scene: THREE.Scene): Props {
       windows.emissiveIntensity = night * 0.9;
       sea.emissiveIntensity = night * 0.55;
       const blink = (light.lampsOn || storm) && Math.floor(now / 1000) % 4 === 0 ? 1 : 0;
-      // blysk ma byc widac na wodzie, ale nie jako plama wieksza niz port
-      beacon.intensity = 350 * blink;
+      // blysk ma byc widac na wodzie, ale nie jako plama wieksza niz port (z bliska na telefonie
+      // przy 350 i zasiegu 140 bialy rozblysk zakrywal pol nabrzeza)
+      beacon.intensity = 180 * blink;
       glow.visible = blink === 1;
     },
   };

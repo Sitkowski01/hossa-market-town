@@ -78,11 +78,13 @@ const quotes = createQuotes(select, (t) => {
 });
 const newsBar = createNewsBar(select);
 // panel zaslania prawa strone (komputer) albo dol ekranu (telefon) — scena przesuwa obraz o tyle
+const szlifMode = new URLSearchParams(location.search).has("szlif");
 const fitInset = () => {
   // bez panelu: na wezszym ekranie makieta odsuwa sie od listy notowan, zeby tabliczki nie wchodzily pod nia
   if (panel.element.hidden) {
     const list = document.querySelector<HTMLElement>(".notowania");
-    const narrow = window.innerWidth < 1200 && window.innerWidth > 720;
+    // ?szlif ustawia kamere sam (modele z pieciu stron) — przesuniecie zsuwaloby kadr
+    const narrow = window.innerWidth < 1200 && window.innerWidth > 720 && !szlifMode;
     // o polowe: cala lista zepchnelaby prawa krawedz makiety poza ekran
     director.setInset(narrow && list ? (list.offsetLeft + list.offsetWidth) / 2 : 0, 0, 0);
     return;

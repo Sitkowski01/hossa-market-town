@@ -40,7 +40,7 @@ export function createTickers(model: Model, scene: THREE.Scene): Tickers {
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
     // stala wielkosc na ekranie: tabliczka ma byc czytelna z kazdej odleglosci
-    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, depthTest: false, toneMapped: false, sizeAttenuation: false }));
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, depthTest: false, toneMapped: false, sizeAttenuation: false, fog: false }));
     sprite.renderOrder = 10;
     sprite.userData = { ticker: t };
     sprite.position.copy(model.anchor(`${t}_kurs`)).add(new THREE.Vector3(0, 4, 0));
