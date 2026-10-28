@@ -215,8 +215,9 @@ zasłoną. Potem kamera przelatuje do ujęcia startowego i makieta obraca się d
 wiersz spółki w notowaniach, a najechanie na wiersz powiększa tabliczkę na makiecie.
 Tabliczki gasną, gdy wchodzą pod panel albo za krawędź ekranu.
 
-**Wydajność.** ~600 tys. trójkątów i ~460 wywołań rysowania na klatkę (razem z mapą cieni);
-60 kl./s na komputerze, ~50 kl./s przy procesorze spowolnionym 4×. Na ekranach dotykowych
+**Wydajność.** ~640 tys. trójkątów i ~470 wywołań rysowania na klatkę (razem z mapą cieni);
+z kartą graficzną 100 kl./s (pełne odświeżanie monitora 100 Hz), przy procesorze spowolnionym 4×
+średnio ~52 kl./s (5% najwolniejszych klatek ~33 kl./s). Na ekranach dotykowych
 gęstość pikseli najwyżej 1,5 i mapa cieni 2048 px zamiast 4096.
 
 Adres strony odtwarza sesję: `?seed=42` (ta sama sesja co do transakcji), `?tempo=16`,
