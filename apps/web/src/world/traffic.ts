@@ -28,8 +28,12 @@ export function convoy(good: Good, quantity: number, dayFraction: number): numbe
     .filter((progress) => progress >= 0 && progress <= 1);
 }
 
-/** Gdzie jest statek: przy nabrzezu, w drodze albo na redzie (za falochronem, w sztorm tam czeka). */
-export type ShipPhase = "przy_nabrzezu" | "wyplywa" | "wraca" | "na_redzie";
+/**
+ * Gdzie jest statek: przy nabrzezu, w drodze albo na redzie (za falochronem, w sztorm tam czeka).
+ * chroni_sie = odplywa pusty przed sztormem; zawija = wraca z redy, laduje i odplywa tego samego dnia
+ * (pierwszy spokojny dzien po sztormie, gdy w porcie czeka towar).
+ */
+export type ShipPhase = "przy_nabrzezu" | "wyplywa" | "wraca" | "na_redzie" | "chroni_sie" | "zawija";
 
 /**
  * Odleglosc statku od nabrzeza: 0 = przy nabrzezu, 1 = na redzie. W dniu zaladunku dzwigi
@@ -45,6 +49,24 @@ export function shipOffset(phase: ShipPhase, dayFraction: number): number {
       return smoothstep(0.3, 0.8, dayFraction);
     case "wraca":
       return 1 - smoothstep(0, 0.5, dayFraction);
+    case "chroni_sie":
+      return smoothstep(0.1, 0.6, dayFraction);
+    case "zawija":
+      return dayFraction < 0.5 ? 1 - smoothstep(0, 0.25, dayFraction) : smoothstep(0.6, 0.95, dayFraction);
+  }
+}
+
+/** Kiedy statek stoi przy nabrzezu i jaka czesc stosow w porcie jeszcze na niego czeka (1 = wszystko). */
+export function portActivity(phase: ShipPhase, dayFraction: number): { readonly docked: boolean; readonly left: number } {
+  switch (phase) {
+    case "przy_nabrzezu":
+      return { docked: true, left: 1 };
+    case "wyplywa":
+      return { docked: dayFraction < 0.3, left: 1 - smoothstep(0, 0.3, dayFraction) };
+    case "zawija":
+      return { docked: dayFraction >= 0.25 && dayFraction < 0.6, left: 1 - smoothstep(0.25, 0.55, dayFraction) };
+    default:
+      return { docked: false, left: 1 };
   }
 }
 
@@ -53,8 +75,8 @@ export function shipOffset(phase: ShipPhase, dayFraction: number): number {
  * poprzedni (na redzie po odplynieciu albo przeczekaniu sztormu, inaczej przy nabrzezu).
  */
 export function nextShipPhase(previous: ShipPhase, storm: boolean, loaded: boolean): ShipPhase {
-  const atSea = previous === "wyplywa" || previous === "na_redzie";
-  if (storm) return atSea ? "na_redzie" : "wyplywa";
-  if (atSea) return "wraca";
+  const atSea = previous !== "przy_nabrzezu" && previous !== "wraca";
+  if (storm) return atSea ? "na_redzie" : "chroni_sie";
+  if (atSea) return loaded ? "zawija" : "wraca";
   return loaded ? "wyplywa" : "przy_nabrzezu";
 }

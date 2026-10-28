@@ -59,7 +59,7 @@ export function createWalkers(model: Model, scene: THREE.Scene): Walkers {
   let seconds = 0;
   return {
     update(snapshot, light, storm, dt) {
-      if (snapshot.speed > 0) seconds += dt;
+      if (snapshot.ticksPerMs > 0) seconds += dt;
       const shown = crowdSize(light.day, snapshot.companies.KSZ.output, storm);
       people.forEach(({ w, body }, i) => {
         body.visible = i < shown;

@@ -124,9 +124,11 @@ describe("Observer — zdarzenia na makiecie", () => {
   it("w sztorm statek czeka na redzie, a po sztormie wraca do portu", () => {
     const shots = run(3, 9, { 1: { kind: "SZTORM", ticker: "BPT", days: 4 } });
     const phases: ShipPhase[] = Array.from({ length: 9 }, (_, d) => lastOfDay(shots, d + 1).ship);
-    expect(phases.slice(1, 4)).toEqual(["wyplywa", "na_redzie", "na_redzie"]);
-    expect(phases).toContain("wraca");
-    expect(lastOfDay(shots, 3).companies.BPT.output).toBe(1);
+    expect(phases.slice(1, 4)).toEqual(["chroni_sie", "na_redzie", "na_redzie"]);
+    expect(phases.some((p) => p === "wraca" || p === "zawija")).toBe(true);
+    // port stoi, dopoki statki nie moga wplynac
+    expect(lastOfDay(shots, 3).companies.BPT.output).toBe(0);
+    expect(lastOfDay(shots, 9).companies.BPT.output).toBe(1);
   });
 
   it("produkcja to dzisiejszy wynik podzielony przez moc zakladu", () => {
@@ -174,6 +176,8 @@ describe("Observer — zdarzenia bez spolki", () => {
     const last = shots.at(-1) as Snapshot;
     expect(last.news.find((n) => n.text.includes("utrzymuje"))?.tone).toBe(0);
     expect(last.incidents).toContainEqual({ kind: "NASTROJE", daysLeft: 5 });
+    // gorsze nastroje to mniej klientow w Koszyku (i mniej przechodniow na rynku)
+    expect(last.companies.KSZ.output).toBeLessThan(lastOfDay(run(5, 2), 1).companies.KSZ.output);
   });
 });
 

@@ -98,9 +98,9 @@ export class Observer {
     const report = economy.last as DayReport;
     const day = session.day;
     // rozruch gospodarki (dni <= 0) to przeszlosc — statek startuje przy nabrzezu
+    const storm = economy.activeEffects().some((e) => e.kind === "SZTORM");
     if (report.day > 0 && report.day !== this.seenDay) {
       this.seenDay = report.day;
-      const storm = economy.activeEffects().some((e) => e.kind === "SZTORM");
       this.ship = nextShipPhase(this.ship, storm, report.ship !== null);
     }
     const produced = report.produced;
@@ -108,8 +108,9 @@ export class Observer {
       RUD: produced.ore / TECH.oreCapacity,
       STW: produced.steel / TECH.steelCapacity,
       MTK: produced.machines / TECH.machineCapacity,
-      BPT: economy.capacity("BPT"),
-      KSZ: economy.capacity("KSZ"),
+      // port stoi w sztorm (statki nie wplywaja), sklep pracuje tyle, ile mieszkancy kupuja
+      BPT: storm ? 0 : economy.capacity("BPT"),
+      KSZ: economy.demand() * economy.capacity("KSZ"),
       GRS: economy.capacity("GRS"),
     };
     const companies = {} as Record<Ticker, CompanyView>;

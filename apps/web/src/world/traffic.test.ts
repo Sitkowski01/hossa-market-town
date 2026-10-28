@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { MAX_TRUCKS, TRUCK_LOAD, convoy, departures, nextShipPhase, shipOffset, type ShipPhase } from "./traffic.js";
+import { MAX_TRUCKS, TRUCK_LOAD, convoy, departures, nextShipPhase, portActivity, shipOffset, type ShipPhase } from "./traffic.js";
 
 describe("convoy", () => {
   it("jeden maly ladunek to jedna ciezarowka, ktora rusza rano i jedzie 0,4 dnia", () => {
@@ -68,6 +68,15 @@ describe("shipOffset", () => {
     expect(at("wraca", 0.5)).toBe(0);
   });
 
+  it("przed sztormem odplywa wczesnie, a zawijajac wplywa rano i odplywa wieczorem", () => {
+    expect(at("chroni_sie", 0.1)).toBe(0);
+    expect(at("chroni_sie", 0.6)).toBe(1);
+    expect(at("zawija", 0)).toBe(1);
+    expect(at("zawija", 0.25)).toBe(0);
+    expect(at("zawija", 0.55)).toBe(0);
+    expect(at("zawija", 0.95)).toBe(1);
+  });
+
   it("ruch jest plynny: rusza i hamuje lagodnie", () => {
     expect(at("wyplywa", 0.32)).toBeLessThan(0.01);
     expect(at("wyplywa", 0.78)).toBeGreaterThan(0.99);
@@ -81,15 +90,24 @@ describe("nextShipPhase", () => {
     expect(nextShipPhase("wraca", false, false)).toBe("przy_nabrzezu");
   });
 
-  it("sztorm wygania statek na rede i trzyma go tam, a po sztormie statek wraca", () => {
-    expect(nextShipPhase("przy_nabrzezu", true, false)).toBe("wyplywa");
+  it("sztorm wygania pusty statek na rede (bez zaladunku) i trzyma go tam, a po sztormie statek wraca", () => {
+    expect(nextShipPhase("przy_nabrzezu", true, false)).toBe("chroni_sie");
+    expect(nextShipPhase("wraca", true, false)).toBe("chroni_sie");
+    expect(nextShipPhase("chroni_sie", true, false)).toBe("na_redzie");
     expect(nextShipPhase("wyplywa", true, false)).toBe("na_redzie");
     expect(nextShipPhase("na_redzie", true, false)).toBe("na_redzie");
-    expect(nextShipPhase("na_redzie", false, true)).toBe("wraca");
+    expect(nextShipPhase("na_redzie", false, false)).toBe("wraca");
+  });
+
+  it("pierwszy spokojny dzien z towarem w porcie: statek zawija z redy, laduje i odplywa", () => {
+    expect(nextShipPhase("na_redzie", false, true)).toBe("zawija");
+    expect(nextShipPhase("chroni_sie", false, true)).toBe("zawija");
+    expect(nextShipPhase("zawija", false, false)).toBe("wraca");
+    expect(nextShipPhase("zawija", true, false)).toBe("na_redzie");
   });
 
   it("wlasnosc: statek nigdy nie przeskakuje miedzy dniami", () => {
-    const phases: ShipPhase[] = ["przy_nabrzezu", "wyplywa", "wraca", "na_redzie"];
+    const phases: ShipPhase[] = ["przy_nabrzezu", "wyplywa", "wraca", "na_redzie", "chroni_sie", "zawija"];
     fc.assert(
       fc.property(fc.constantFrom(...phases), fc.array(fc.tuple(fc.boolean(), fc.boolean()), { maxLength: 30 }), (start, days) => {
         let phase = start;
@@ -100,5 +118,21 @@ describe("nextShipPhase", () => {
         }
       }),
     );
+  });
+});
+
+describe("portActivity", () => {
+  it("dzwigi laduja tylko wtedy, gdy statek stoi przy nabrzezu w dniu zaladunku", () => {
+    expect(portActivity("przy_nabrzezu", 0.5)).toEqual({ docked: true, left: 1 });
+    expect(portActivity("wyplywa", 0)).toEqual({ docked: true, left: 1 });
+    expect(portActivity("wyplywa", 0.3)).toEqual({ docked: false, left: 0 });
+    expect(portActivity("zawija", 0.1)).toEqual({ docked: false, left: 1 });
+    expect(portActivity("zawija", 0.4)).toMatchObject({ docked: true });
+    expect(portActivity("zawija", 0.4).left).toBeCloseTo(0.5);
+    expect(portActivity("zawija", 0.6)).toEqual({ docked: false, left: 0 });
+  });
+
+  it("statek uciekajacy przed sztormem nic nie zabiera, a w drodze i na redzie stosy stoja", () => {
+    for (const phase of ["chroni_sie", "wraca", "na_redzie"] as const) for (const f of [0, 0.4, 0.9]) expect(portActivity(phase, f)).toEqual({ docked: false, left: 1 });
   });
 });

@@ -177,7 +177,8 @@ function frame(now: number): void {
     const light = daylight(hour);
     const storm = snap.incidents.some((i) => i.kind === "SZTORM");
     // animacje zakladow ida w tempie symulacji: w pauzie dym stoi, przy 16× kleby leca szybciej
-    const simDt = dt * snap.speed;
+    // czas symulacji stoi w pauzie i gdy worker czeka na Parkiet (ticksPerMs = 0) — maszyny tez
+    const simDt = snap.ticksPerMs > 0 ? dt * snap.speed : 0;
     sky.update(light, storm);
     trucks.update(snap, fraction);
     props.update(snap, fraction, light, storm, simDt, now);

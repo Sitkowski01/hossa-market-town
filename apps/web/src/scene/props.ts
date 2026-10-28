@@ -1,8 +1,7 @@
 import * as THREE from "three";
 import type { Snapshot } from "../sim/protocol.js";
 import type { Daylight } from "../world/daylight.js";
-import { smoothstep } from "../world/smooth.js";
-import { shipOffset } from "../world/traffic.js";
+import { portActivity, shipOffset } from "../world/traffic.js";
 import { BLOOM_THRESHOLD } from "./stage.js";
 import type { Model } from "./model.js";
 
@@ -56,26 +55,30 @@ export function createProps(model: Model, scene: THREE.Scene): Props {
   scene.add(beacon, glow);
 
   let wheelAngle = 0;
+  /** Czas pracy maszyn (ms symulacji przy tempie 1x). */
+  let work = 0;
   return {
     update(snapshot, dayFraction, light, storm, dt, now) {
       wheelAngle += WHEEL_SPEED * snapshot.companies.RUD.output * dt;
       for (const w of wheels) w.rotation.z = wheelAngle;
 
+      const port = portActivity(snapshot.ship, dayFraction);
+      // maszyny w zakladach pracuja w czasie symulacji: w pauzie stoja jak dym i kolo wyciagowe
+      work += dt * 1000;
       // zwal nigdy nie znika calkiem: kopalnia codziennie wysyla prawie cale wydobycie, wiec
       // zwykly dzien to niska halda, a wysoka rosnie dopiero, gdy huta nie odbiera rudy
       for (const [key, heap] of Object.entries(heaps)) {
         const floor = key === "mine" ? 0.55 : 0.25;
         // w dniu zaladunku stosy w porcie znikaja do 0,3 dnia — dzwigi przenosza je na statek
-        const loading = snapshot.ship === "wyplywa" && (key === "portSteel" || key === "portMachines") ? 1 - smoothstep(0, 0.3, dayFraction) : 1;
+        const loading = key === "portSteel" || key === "portMachines" ? port.left : 1;
         heap.scale.y = floor + (1 - floor) * snapshot.yards[key as keyof typeof heaps] * loading;
       }
 
-      const docked = snapshot.ship === "przy_nabrzezu" || (snapshot.ship === "wyplywa" && dayFraction < 0.3);
-      const working = docked && snapshot.yards.portSteel + snapshot.yards.portMachines > 0.02;
+      const working = port.docked && snapshot.yards.portSteel + snapshot.yards.portMachines > 0.02;
       cranes.forEach((c, i) => {
-        c.rotation.y = working ? 0.5 * Math.sin(now / 2600 + i * 1.7) : c.rotation.y * 0.98;
+        c.rotation.y = working ? 0.5 * Math.sin(work / 2600 + i * 1.7) : c.rotation.y * 0.98;
       });
-      gantry.position.x = gantryHome - (snapshot.companies.STW.output > 0 ? 7 + 6 * Math.sin(now / 3800) : 0);
+      gantry.position.x = gantryHome - (snapshot.companies.STW.output > 0 ? 7 + 6 * Math.sin(work / 3800) : 0);
       ship.position.z = shipHome + ROADSTEAD * shipOffset(snapshot.ship, dayFraction);
 
       const night = light.lampsOn ? 1 - light.day : 0;
