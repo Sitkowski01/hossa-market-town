@@ -6,6 +6,8 @@ w centrum. Kursy nie są losowane: powstają w prawdziwym arkuszu zleceń, w kt�
 inwestorów reagują na to, co dzieje się na makiecie (strajk, sztorm, wyniki kwartalne,
 decyzja banku centralnego).
 
+**▶ [Demo w przeglądarce](https://sitekmikolaj.pl/hossa/)** — całość liczy się u Ciebie, bez serwera; `?seed=79&spolka=RUD` otwiera od razu strajk w kopalni
+
 ![Wczytanie makiety, przelot kamery i panel kopalni w dniu strajku](docs/hossa.gif)
 
 ```
