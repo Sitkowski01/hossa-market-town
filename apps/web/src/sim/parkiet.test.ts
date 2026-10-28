@@ -2,16 +2,34 @@ import { OrderBook, orderRequest, type BookEvent } from "@hossa/engine";
 import { TICKERS, type Ticker } from "@hossa/economy";
 import type { Command } from "@hossa/market";
 import { describe, expect, it } from "vitest";
-import { ParkietMirror, type Http } from "./parkiet.js";
+import { ParkietMirror, zloty, type Http } from "./parkiet.js";
 
 const BASE = "http://parkiet";
 
+interface FakeOptions {
+  /** Pierwszy numer zlecenia — inny niz lokalny, zeby sprawdzic tlumaczenie numerow. */
+  readonly firstId?: number;
+  readonly symbols?: readonly string[];
+  /** Psuje wynik silnika, zeby sprawdzic, ze rozbieznosc zostanie zauwazona. */
+  readonly tamper?: (events: BookEvent[]) => BookEvent[];
+}
+
 /** Parkiet w pamieci: ten sam silnik co w przegladarce za REST-em o ksztalcie prawdziwego API. */
-function fakeParkiet(options: { readonly symbols?: readonly string[] } = {}): { http: Http; books: Map<string, OrderBook>; requests: string[] } {
+function fakeParkiet(options: FakeOptions = {}): { http: Http; books: Map<string, OrderBook>; requests: string[] } {
   const books = new Map<string, OrderBook>((options.symbols ?? TICKERS).map((t) => [t, new OrderBook()]));
   const requests: string[] = [];
-  let nextId = 1;
+  let nextId = options.firstId ?? 1;
   const reply = (body: unknown, status = 200) => Promise.resolve(new Response(JSON.stringify(body), { status }));
+  const remote = (e: BookEvent) => {
+    switch (e.kind) {
+      case "RESTED":
+        return { type: "RESTED", orderId: e.orderId, side: e.side, price: zloty(e.price), quantity: e.quantity };
+      case "TRADE":
+        return { type: "TRADE", makerOrderId: e.makerOrderId, takerOrderId: e.takerOrderId, takerSide: e.takerSide, price: zloty(e.price), quantity: e.quantity };
+      case "CANCELLED":
+        return { type: "CANCELLED", orderId: e.orderId, quantity: e.quantity, reason: e.reason };
+    }
+  };
   const http: Http = (url, init) => {
     const method = init?.method ?? "GET";
     const path = url.replace(BASE, "");
@@ -20,11 +38,15 @@ function fakeParkiet(options: { readonly symbols?: readonly string[] } = {}): { 
     const [, symbol = "", rest = ""] = /^\/api\/instruments\/(\w+)\/(.*)$/.exec(path) ?? [];
     const book = books.get(symbol) as OrderBook;
     if (rest === "book") return reply({ bids: book.depth("BUY", 10), asks: book.depth("SELL", 10) });
-    const body = JSON.parse(init?.body as string) as { side: "BUY" | "SELL"; type: "LIMIT" | "MARKET"; price?: string; quantity: number };
-    const id = nextId++;
-    const price = body.price === undefined ? 0 : Math.round(Number(body.price) * 100);
-    book.submit(orderRequest(id, body.side, body.type, price, body.quantity));
-    return reply({ orderId: id, runId: 3, events: [] }, 201);
+    if (method === "POST") {
+      const body = JSON.parse(init?.body as string) as { side: "BUY" | "SELL"; type: "LIMIT" | "MARKET"; price?: string; quantity: number };
+      const id = nextId++;
+      const price = body.price === undefined ? 0 : Math.round(Number(body.price) * 100);
+      const events = (options.tamper ?? ((e) => e))(book.submit(orderRequest(id, body.side, body.type, price, body.quantity)));
+      return reply({ orderId: id, runId: 3, events: events.map(remote) }, 201);
+    }
+    const [, id = "0"] = /orders\/(\d+)\?runId=3$/.exec(rest) ?? [];
+    return book.cancel(Number(id)) ? reply({}) : reply({}, 404);
   };
   return { http, books, requests };
 }
@@ -47,8 +69,17 @@ describe("ParkietMirror", () => {
       { side: "SELL", type: "LIMIT", price: "34.40", quantity: 10, clientOrderId: "h7-abc-5" },
       { side: "BUY", type: "MARKET", quantity: 4, clientOrderId: "h7-abc-6" },
     ]);
-    expect(mirror.stats()).toEqual({ state: "ready", sent: 2, pending: 0, failed: 0 });
-    expect(parkiet.books.get("RUD")?.depth("SELL", 1)).toEqual([{ price: 3440, quantity: 6, orders: 1 }]);
+    expect(mirror.stats()).toMatchObject({ matched: 2, mismatched: 0 });
+  });
+
+  it("notices when Parkiet answers differently than the engine in the browser", async () => {
+    const parkiet = fakeParkiet({ tamper: (events) => events.map((e) => (e.kind === "TRADE" ? { ...e, price: e.price + 5 } : e)) });
+    const mirror = new ParkietMirror(BASE, "h", parkiet.http);
+    mirror.push(submit("BPT", 1, "SELL", 5000, 3, rested(1, "SELL", 5000, 3)));
+    mirror.push(submit("BPT", 2, "BUY", 5000, 3, [{ kind: "TRADE", makerOrderId: 1, takerOrderId: 2, takerSide: "BUY", price: 5000, quantity: 3 }]));
+    await mirror.idle();
+    expect(mirror.stats()).toMatchObject({ matched: 1, mismatched: 1 });
+    expect(mirror.stats().lastError).toMatch(/^BPT: zlecenie 2 dalo w Parkiecie .*"price":"50.05".* zamiast .*"price":"50.00"/);
   });
 
   it("refuses to mirror into a Parkiet without the town's companies or with orders left from another session", async () => {
@@ -63,5 +94,21 @@ describe("ParkietMirror", () => {
     await mirror.idle();
     expect(mirror.stats()).toMatchObject({ state: "error", sent: 0, pending: 0, lastError: "arkusze Parkietu nie sa puste — zrestartuj kontener" });
     expect(used.requests.filter((r) => r.startsWith("POST"))).toEqual([]);
+  });
+
+  it("keeps going after an HTTP error and reports it", async () => {
+    let calls = 0;
+    const parkiet = fakeParkiet();
+    const mirror = new ParkietMirror(BASE, "h", (url, init) => (init?.method === "POST" && ++calls === 1 ? Promise.resolve(new Response("{}", { status: 503 })) : parkiet.http(url, init)));
+    mirror.push(submit("MTK", 1, "BUY", 7000, 1, []));
+    mirror.push(submit("MTK", 2, "BUY", 7000, 1, rested(2, "BUY", 7000, 1)));
+    await mirror.idle();
+    expect(mirror.stats()).toMatchObject({ sent: 2, matched: 1, failed: 1, lastError: "HTTP 503 z /api/instruments/MTK/orders" });
+  });
+
+  it("fails cleanly when Parkiet is down", async () => {
+    const down = new ParkietMirror(BASE, "h", () => Promise.reject(new Error("Failed to fetch")));
+    await down.idle();
+    expect(down.stats()).toMatchObject({ state: "error", lastError: "Failed to fetch" });
   });
 });

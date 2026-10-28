@@ -2,7 +2,10 @@ import { TICKERS, type Ticker } from "@hossa/economy";
 import type { Command } from "@hossa/market";
 
 /**
- * Tryb polaczony: kazde zlecenie botow idzie tez do prawdziwego Parkietu (gielda w Javie).
+ * Tryb polaczony: kazde zlecenie botow idzie tez do prawdziwego Parkietu (gielda w Javie), a jego
+ * odpowiedz jest porownywana z wynikiem silnika w przegladarce. Silnik Hossy to port Parkietu,
+ * wiec te same polecenia w tej samej kolejnosci musza dac te same zdarzenia — licznik zgodnosci
+ * pokazuje to na zywo.
  *
  * Kolejnosc liczy sie tylko w obrebie spolki (kazdy arkusz jest osobny), wiec kazda spolka ma
  * wlasna kolejke zadan, a szesc kolejek idzie rownolegle.
@@ -14,11 +17,28 @@ export interface LinkStats {
   readonly state: LinkState;
   /** Polecenia wyslane do Parkietu (zlecenia i anulowania). */
   readonly sent: number;
+  /** Odpowiedzi takie same jak wynik silnika w przegladarce. */
+  readonly matched: number;
+  readonly mismatched: number;
   /** Polecenia czekajace w kolejkach — rosnie, gdy Parkiet nie nadaza za tempem. */
   readonly pending: number;
-  /** Bledy sieci albo HTTP. */
+  /** Bledy sieci albo HTTP — polecenie nie doszlo do porownania. */
   readonly failed: number;
   readonly lastError?: string;
+}
+
+type Side = "BUY" | "SELL";
+
+/** Zdarzenie z odpowiedzi Parkietu: ceny w zlotowkach jako tekst. */
+type RemoteEvent =
+  | { readonly type: "RESTED"; readonly orderId: number; readonly side: Side; readonly price: string; readonly quantity: number }
+  | { readonly type: "TRADE"; readonly makerOrderId: number; readonly takerOrderId: number; readonly takerSide: Side; readonly price: string; readonly quantity: number }
+  | { readonly type: "CANCELLED"; readonly orderId: number; readonly quantity: number; readonly reason: string };
+
+interface OrderReply {
+  readonly orderId: number;
+  readonly runId: number;
+  readonly events: readonly RemoteEvent[];
 }
 
 interface BookReply {
@@ -34,9 +54,14 @@ export const zloty = (grosze: number): string => (grosze / 100).toFixed(2);
 export class ParkietMirror {
   private state: LinkState = "connecting";
   private sent = 0;
+  private matched = 0;
+  private mismatched = 0;
   private pending = 0;
   private failed = 0;
   private lastError: string | undefined;
+  private runId = 0;
+  /** Lokalne zlecenia czekajace w arkuszu: numer w Parkiecie i ile jeszcze zostalo. */
+  private readonly resting = new Map<number, { remote: number; remaining: number }>();
   private readonly queues = new Map<Ticker, Promise<void>>();
   private readonly ready: Promise<boolean>;
 
@@ -53,8 +78,8 @@ export class ParkietMirror {
   }
 
   stats(): LinkStats {
-    const { state, sent, pending, failed, lastError } = this;
-    return { state, sent, pending, failed, ...(lastError === undefined ? {} : { lastError }) };
+    const { state, sent, matched, mismatched, pending, failed, lastError } = this;
+    return { state, sent, matched, mismatched, pending, failed, ...(lastError === undefined ? {} : { lastError }) };
   }
 
   push(command: Command): void {
@@ -114,11 +139,46 @@ export class ParkietMirror {
       quantity: command.quantity,
       clientOrderId: `${this.tag}-${String(command.orderId)}`,
     };
-    await this.json(`${this.base}/api/instruments/${command.ticker}/orders`, {
+    const reply = (await this.json(`${this.base}/api/instruments/${command.ticker}/orders`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
+    })) as OrderReply;
+    this.runId = reply.runId;
+    const expected = command.events.map((e): RemoteEvent => {
+      switch (e.kind) {
+        case "RESTED":
+          return { type: "RESTED", orderId: reply.orderId, side: e.side, price: zloty(e.price), quantity: e.quantity };
+        case "TRADE":
+          return { type: "TRADE", makerOrderId: this.resting.get(e.makerOrderId)?.remote ?? -1, takerOrderId: reply.orderId, takerSide: e.takerSide, price: zloty(e.price), quantity: e.quantity };
+        case "CANCELLED":
+          return { type: "CANCELLED", orderId: reply.orderId, quantity: e.quantity, reason: e.reason };
+      }
     });
+    this.compare(command, expected, reply.events);
+    for (const e of command.events) {
+      if (e.kind === "RESTED") this.resting.set(command.orderId, { remote: reply.orderId, remaining: e.quantity });
+      else if (e.kind === "TRADE") this.filled(e.makerOrderId, e.quantity);
+    }
+  }
+
+  private compare(command: Command, expected: readonly RemoteEvent[], actual: readonly RemoteEvent[]): void {
+    // porownanie po kluczach w stalej kolejnosci: JSON z Javy moze miec pola w innym porzadku
+    const canonical = (events: readonly RemoteEvent[]) => JSON.stringify(events.map((e) => Object.fromEntries(Object.entries(e).sort(([a], [b]) => a.localeCompare(b)))));
+    if (canonical(expected) === canonical(actual)) this.matched += 1;
+    else this.differs(`${command.ticker}: zlecenie ${String(command.orderId)} dalo w Parkiecie ${canonical(actual)} zamiast ${canonical(expected)}`);
+  }
+
+  private differs(message: string): void {
+    this.mismatched += 1;
+    this.lastError = message;
+  }
+
+  private filled(orderId: number, quantity: number): void {
+    const order = this.resting.get(orderId);
+    if (!order) return;
+    order.remaining -= quantity;
+    if (order.remaining <= 0) this.resting.delete(orderId);
   }
 
   private async json(url: string, init?: RequestInit): Promise<unknown> {
