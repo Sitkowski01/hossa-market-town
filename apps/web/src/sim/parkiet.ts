@@ -150,7 +150,7 @@ export class ParkietMirror {
   private async run(command: Command): Promise<void> {
     this.sent += 1;
     if (command.kind === "submit") await this.submit(command);
-    else await this.cancel(command.ticker, command.orderId);
+    else await this.cancel(command);
   }
 
   private async submit(command: Extract<Command, { kind: "submit" }>): Promise<void> {
@@ -184,12 +184,14 @@ export class ParkietMirror {
     }
   }
 
-  private async cancel(ticker: Ticker, orderId: number): Promise<void> {
+  private async cancel(command: Extract<Command, { kind: "cancel" }>): Promise<void> {
+    const { ticker, orderId } = command;
     const order = this.resting.get(orderId);
     this.resting.delete(orderId);
     if (!order) throw new Error(`zlecenie ${String(orderId)} nie doszło wcześniej do Parkietu`);
     const reply = await this.request(`${this.base}/api/instruments/${ticker}/orders/${String(order.remote)}?runId=${String(this.runId)}`, { method: "DELETE" });
-    if (reply.ok) this.matched += 1;
+    // Parkiet odpowiada zdarzeniem anulowania: ile akcji zdjal z arkusza — tyle, ile lokalnie jeszcze czekalo
+    if (reply.ok) this.compare(command, [{ type: "CANCELLED", orderId: order.remote, quantity: order.remaining, reason: "REQUESTED" }], [(await reply.json()) as RemoteEvent]);
     else if (reply.status === 404) this.differs(`${ticker}: Parkiet nie miał już zlecenia ${String(orderId)} do anulowania`);
     else throw new Error(`HTTP ${String(reply.status)} przy anulowaniu w ${ticker}`);
   }

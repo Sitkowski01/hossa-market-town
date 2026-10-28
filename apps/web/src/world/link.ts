@@ -20,5 +20,6 @@ export function linkLabel(link: Link): LinkLabel {
   if (!link.streaming) return { text: "Parkiet · strumień zamknięty", tone: "blad", title: "Strumień notowań /ws/market się rozłączył — kursy na scenie są z przeglądarki, łącze próbuje wrócić." };
   const agreed = `Parkiet ✓ ${count(link.matched)} zgodnych`;
   if (link.waiting) return { text: `${agreed} · czeka na giełdę`, tone: "czeka", title: `${ABOUT} Czas stoi, aż Parkiet obsłuży ${count(link.pending)} zleceń z kolejki.` };
-  return { text: agreed, tone: "ok", title: link.failed > 0 ? `${ABOUT} Błędy połączenia: ${count(link.failed)}, ostatni: ${why}` : ABOUT };
+  // po pierwszym bledzie lacza mirror przechodzi w stan error, wiec tu bledow juz nie ma
+  return { text: agreed, tone: "ok", title: ABOUT };
 }

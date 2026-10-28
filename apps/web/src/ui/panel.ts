@@ -130,7 +130,7 @@ export function createPanel(onClose: () => void): Panel {
       setData(delta, "kierunek", trend(pct));
 
       const lastBar = d.bars.at(-1);
-      const key = [d.bars.length, lastBar?.day, lastBar?.high, lastBar?.low, lastBar?.close, d.bars[0]?.open, c.fair, c.price, chart.clientWidth, chart.clientHeight].join("|");
+      const key = [Math.floor(snapshot.time), d.bars.length, lastBar?.day, lastBar?.high, lastBar?.low, lastBar?.close, d.bars[0]?.open, c.fair, c.price, chart.clientWidth, chart.clientHeight].join("|");
       if (key !== drawn) {
         drawn = key;
         drawChart(chart, d.bars, c.fair, c.price, BARS_SHOWN);

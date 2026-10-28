@@ -3,7 +3,7 @@ import * as THREE from "three";
 import type { Snapshot } from "../sim/protocol.js";
 import { TICKERS } from "../world/companies.js";
 import { FONT } from "../fonts.js";
-import { change, price } from "../world/format.js";
+import { change, price, trend } from "../world/format.js";
 import { covered, fade, type Rect } from "../world/overlap.js";
 import { BLOOM_THRESHOLD } from "./stage.js";
 import type { Model } from "./model.js";
@@ -22,7 +22,9 @@ export interface Tickers {
   highlight(ticker: Ticker | null): void;
 }
 
-const tone = (pct: number): string => (pct > 0.0005 ? UP : pct < -0.0005 ? DOWN : FLAT);
+// ten sam prog co w notowaniach i panelu: "+0,03%" jest zielone wszedzie, nie tylko w liscie
+const TONES = { wzrost: UP, spadek: DOWN, "": FLAT } as const;
+const tone = (pct: number): string => TONES[trend(pct)];
 
 /**
  * Notowania na makiecie: tabliczka z kursem nad kazda spolka (zawsze widoczna, zielona albo

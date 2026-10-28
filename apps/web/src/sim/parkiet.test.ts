@@ -48,7 +48,8 @@ function fakeParkiet(options: FakeOptions = {}): { http: Http; books: Map<string
       return reply({ orderId: id, runId: 3, events: reversed }, 201);
     }
     const [, id = "0"] = /orders\/(\d+)\?runId=3$/.exec(rest) ?? [];
-    return book.cancel(Number(id)) ? reply({}) : reply({}, 404);
+    const cancelled = book.cancel(Number(id));
+    return cancelled ? reply(remote(cancelled)) : reply({}, 404);
   };
   return { http, books, requests };
 }
@@ -120,6 +121,18 @@ describe("ParkietMirror", () => {
     await mirror.idle();
     expect(mirror.stats()).toMatchObject({ matched: 1, mismatched: 1 });
     expect(mirror.stats().lastError).toMatch(/^BPT: zlecenie 2 dało w Parkiecie .*"price":"50.05".* zamiast .*"price":"50.00"/);
+  });
+
+  it("compares how many shares Parkiet took off the book when cancelling", async () => {
+    const parkiet = fakeParkiet();
+    const mirror = new ParkietMirror(BASE, "h", parkiet.http);
+    mirror.push(submit("KSZ", 1, "BUY", 9000, 5, rested(1, "BUY", 9000, 5)));
+    await mirror.idle();
+    parkiet.books.get("KSZ")?.submit(orderRequest(99, "SELL", "MARKET", 0, 2)); // w Parkiecie ktos zjadl czesc
+    mirror.push({ kind: "cancel", ticker: "KSZ", orderId: 1 });
+    await mirror.idle();
+    expect(mirror.stats()).toMatchObject({ matched: 1, mismatched: 1 });
+    expect(mirror.stats().lastError).toMatch(/"quantity":3.* zamiast .*"quantity":5/);
   });
 
   it("counts a cancel that Parkiet no longer had as a difference", async () => {

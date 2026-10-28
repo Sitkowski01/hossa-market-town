@@ -24,10 +24,7 @@ describe("linkLabel", () => {
     expect(linkLabel(link({ mismatched: 1203, lastError: "RUD: zlecenie 7 dalo..." }))).toEqual({ text: "Parkiet · różnice: 1 203", tone: "blad", title: "RUD: zlecenie 7 dalo..." });
   });
 
-  it("warns when the quote stream is closed, and mentions connection errors without hiding the agreement", () => {
+  it("warns when the quote stream is closed", () => {
     expect(linkLabel(link({ streaming: false }))).toMatchObject({ text: "Parkiet · strumień zamknięty", tone: "blad", title: expect.stringContaining("kursy na scenie są z przeglądarki") as string });
-    const label = linkLabel(link({ failed: 3, lastError: "HTTP 503 z /api/instruments/RUD/orders" }));
-    expect(label).toMatchObject({ text: "Parkiet ✓ 12 500 zgodnych", tone: "ok" });
-    expect(label.title).toMatch(/Błędy połączenia: 3, ostatni: HTTP 503/);
   });
 });
