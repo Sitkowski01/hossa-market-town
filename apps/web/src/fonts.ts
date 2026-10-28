@@ -1,10 +1,8 @@
-// IBM Plex Sans z paczki (bez zewnetrznego CDN): latin-ext ma polskie znaki, latin reszte.
-import "@fontsource/ibm-plex-sans/latin-400.css";
-import "@fontsource/ibm-plex-sans/latin-600.css";
-import "@fontsource/ibm-plex-sans/latin-700.css";
-import "@fontsource/ibm-plex-sans/latin-ext-400.css";
-import "@fontsource/ibm-plex-sans/latin-ext-600.css";
-import "@fontsource/ibm-plex-sans/latin-ext-700.css";
+// Kroje z portfolio, z paczek (bez zewnetrznego CDN): Inter do tekstu, JetBrains Mono do liczb,
+// tickerow i etykiet, Space Grotesk do nazw. Wersje zmienne maja polskie znaki w latin-ext.
+import "@fontsource-variable/inter";
+import "@fontsource-variable/jetbrains-mono";
+import "@fontsource-variable/space-grotesk";
 
-/** Ten sam krój w CSS i na canvasach (tabliczki kursow, pas LED, wykres). */
-export const FONT = "'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif";
+/** Krój liczb w CSS i na canvasach (tabliczki kursow, pas LED, wykres): cyfry rownej szerokosci. */
+export const FONT = "'JetBrains Mono Variable', ui-monospace, Consolas, monospace";

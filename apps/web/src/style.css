@@ -1,11 +1,36 @@
+/*
+ * Paleta i kroje z portfolio: prawie czarny grafit, panele jak karty portfolio, jedna zielen jako
+ * akcent i czerwien tylko dla spadkow. Liczby, tickery i etykiety w JetBrains Mono (cyfry rownej
+ * szerokosci), nazwy w Space Grotesk, reszta w Inter. Makieta 3D ma wlasne swiatla i kolory.
+ */
 :root {
   color-scheme: dark;
-  --tlo: #0b1220;
-  --tekst: #e6edf6;
-  --przygaszony: #93a4bb;
-  --wzrost: #2fbf71;
-  --spadek: #e5484d;
-  font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --tlo: #030712;
+  --powierzchnia: rgb(15 23 42 / 86%);
+  --powierzchnia-pelna: #0f172a;
+  --wcisniety: #111c33;
+  --krawedz: #1e293b;
+  --krawedz-mocna: #334155;
+  --tekst: #cbd5e1;
+  --tekst-jasny: #f8fafc;
+  --przygaszony: #94a3b8;
+  --wyblakly: #7a879c; /* >= 4,9:1 na tle i panelach (WCAG AA) */
+  --wzrost: #10b981;
+  --wzrost-tekst: #34d399;
+  --wzrost-tlo: rgb(16 185 129 / 12%);
+  --spadek: #ef4444;
+  --spadek-tekst: #f87171;
+  --spadek-tlo: rgb(239 68 68 / 12%);
+  --wycena: #e0b44c;
+  --cien: 0 4px 6px -1px rgb(0 0 0 / 50%), 0 2px 4px -1px rgb(0 0 0 / 30%);
+  --poswiata: 0 0 15px rgb(16 185 129 / 20%);
+  --promien: 10px;
+  --sans: "Inter Variable", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: "JetBrains Mono Variable", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --display: "Space Grotesk Variable", "Inter Variable", system-ui, sans-serif;
+  --ruch: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --panel: min(440px, 42vw);
+  font-family: var(--sans);
 }
 
 html,
@@ -13,8 +38,43 @@ body {
   margin: 0;
   height: 100%;
   overflow: hidden;
-  background: var(--tlo);
+  /* tlo jak w portfolio: grafit, zielone swiatlo z gory po prawej, siatka znikajaca w dol */
+  background:
+    radial-gradient(60rem 32rem at 78% -8%, rgb(16 185 129 / 0.11), transparent 62%),
+    radial-gradient(48rem 26rem at 50% 62%, rgb(51 65 85 / 0.22), transparent 70%),
+    var(--tlo);
   color: var(--tekst);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(rgb(148 163 184 / 0.05) 1px, transparent 1px) 0 0 / 64px 64px,
+    linear-gradient(90deg, rgb(148 163 184 / 0.05) 1px, transparent 1px) 0 0 / 64px 64px;
+  mask-image: linear-gradient(180deg, #000, transparent 75%);
+}
+
+::selection {
+  background: rgb(16 185 129 / 35%);
+  color: var(--tekst-jasny);
+}
+
+main {
+  height: 100%;
+}
+
+/* tekst tylko dla czytnika ekranu (np. h1 strony, ktora wizualnie jest makieta) */
+.tylko-czytnik {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 #scena {
@@ -24,6 +84,8 @@ body {
   touch-action: none;
 }
 
+/* --- ekran ladowania: jak terminal z portfolio --- */
+
 #ladowanie {
   position: fixed;
   inset: 0;
@@ -31,7 +93,11 @@ body {
   z-index: 20;
   place-items: center;
   padding: 24px;
-  background: radial-gradient(60% 50% at 50% 42%, #16243b, var(--tlo));
+  background:
+    radial-gradient(40rem 22rem at 50% 38%, rgb(16 185 129 / 0.1), transparent 70%),
+    linear-gradient(rgb(148 163 184 / 0.05) 1px, transparent 1px) 0 0 / 64px 64px,
+    linear-gradient(90deg, rgb(148 163 184 / 0.05) 1px, transparent 1px) 0 0 / 64px 64px,
+    var(--tlo);
   transition: opacity 0.6s;
 }
 
@@ -39,15 +105,44 @@ body {
   display: grid;
   justify-items: center;
   gap: 10px;
-  width: min(360px, 100%);
+  width: min(380px, 100%);
   text-align: center;
 }
 
-.ladowanie-nazwa {
+.ladowanie-znacznik {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   margin: 0;
-  font-size: 2.6rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  padding: 4px 10px;
+  border: 1px solid var(--krawedz);
+  border-radius: 999px;
+  font: 500 0.72rem/1.4 var(--mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--przygaszony);
+}
+
+.ladowanie-znacznik span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--wzrost);
+  box-shadow: 0 0 8px var(--wzrost);
+  animation: puls 2s ease-in-out infinite;
+}
+
+@keyframes puls {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.ladowanie-nazwa {
+  margin: 4px 0 0;
+  font: 700 3.2rem/1 var(--display);
+  letter-spacing: -0.03em;
+  color: var(--tekst-jasny);
 }
 
 .ladowanie-nazwa::after {
@@ -55,29 +150,31 @@ body {
   display: inline-block;
   width: 0.5em;
   height: 0.32em;
-  margin-left: 0.12em;
+  margin-left: 0.14em;
   background: var(--wzrost);
   clip-path: polygon(0 100%, 35% 45%, 60% 70%, 100% 0, 100% 100%);
+  filter: drop-shadow(0 0 6px rgb(16 185 129 / 60%));
 }
 
 .ladowanie-opis {
-  margin: 0 0 14px;
+  margin: 0 0 16px;
   color: var(--przygaszony);
   text-wrap: balance;
 }
 
 .ladowanie-pasek {
   width: 100%;
-  height: 4px;
+  height: 3px;
   overflow: hidden;
   border-radius: 2px;
-  background: rgb(147 164 187 / 18%);
+  background: var(--krawedz);
 }
 
 .ladowanie-pasek span {
   display: block;
   height: 100%;
   background: var(--wzrost);
+  box-shadow: var(--poswiata);
   transform: scaleX(var(--postep, 0));
   transform-origin: left;
   transition: transform 0.2s;
@@ -100,17 +197,27 @@ body {
 
 .ladowanie-tekst {
   margin: 0;
-  font-size: 0.9rem;
+  font: 0.8rem/1.5 var(--mono);
   color: var(--przygaszony);
-  font-variant-numeric: tabular-nums;
+}
+
+.ladowanie-tekst::before {
+  content: "> ";
+  color: var(--wzrost-tekst);
 }
 
 #ladowanie[data-blad] .ladowanie-pasek span {
   background: var(--spadek);
+  box-shadow: none;
 }
 
 #ladowanie[data-blad] .ladowanie-tekst {
   color: var(--tekst);
+}
+
+#ladowanie[data-blad] .ladowanie-tekst::before {
+  content: "! ";
+  color: var(--spadek-tekst);
 }
 
 #ladowanie.gotowe {
