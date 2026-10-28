@@ -12,6 +12,7 @@ import { Observer } from "./view.js";
  * zalegle kroki, a scena dostaje migawke.
  */
 const SNAPSHOT_EVERY_MS = 100;
+const RECONNECT_MS = 2000;
 
 const port = self as unknown as {
   onmessage: ((e: MessageEvent<ToWorker>) => void) | null;
@@ -29,16 +30,22 @@ function connect(base: string, seed: number): ParkietMirror {
   // tag z czasem: ponowne otwarcie strony z tym samym ziarnem nie powtorzy clientOrderId
   const mirror = new ParkietMirror(base, `h${String(seed)}-${Date.now().toString(36)}`);
   const link = { mirror, feed: new ParkietFeed(), streaming: false };
-  const socket = new WebSocket(ParkietFeed.url(new URL(base, self.location.href).href));
-  socket.onopen = () => {
-    link.streaming = true;
+  const url = ParkietFeed.url(new URL(base, self.location.href).href);
+  // strumien wraca sam po zerwaniu; do tego czasu scena pokazuje kursy z przegladarki
+  const open = () => {
+    const socket = new WebSocket(url);
+    socket.onopen = () => {
+      link.streaming = true;
+    };
+    socket.onclose = () => {
+      link.streaming = false;
+      setTimeout(open, RECONNECT_MS);
+    };
+    socket.onmessage = (e: MessageEvent<string>) => {
+      link.feed.handle(e.data);
+    };
   };
-  socket.onclose = () => {
-    link.streaming = false;
-  };
-  socket.onmessage = (e: MessageEvent<string>) => {
-    link.feed.handle(e.data);
-  };
+  open();
   parkiet = link;
   return mirror;
 }
@@ -54,7 +61,7 @@ function loop(): void {
   while (session.step < clock.stepsDue) session.tick();
   const local = observer.snapshot(session, clock, focus);
   const snapshot = waiting ? { ...local, ticksPerMs: 0 } : local;
-  port.postMessage({ type: "snapshot", snapshot: parkiet ? withParkiet(snapshot, parkiet.feed, { ...parkiet.mirror.stats(), streaming: parkiet.streaming }) : snapshot });
+  port.postMessage({ type: "snapshot", snapshot: parkiet ? withParkiet(snapshot, parkiet.feed, { ...parkiet.mirror.stats(), streaming: parkiet.streaming, waiting }) : snapshot });
 }
 
 port.onmessage = (e) => {

@@ -59,6 +59,13 @@ module.exports = {
       to: { path: "^(packages/economy|node_modules/@hossa/economy)", dependencyTypesNot: ["type-only"] },
     },
     {
+      name: "lacze-z-parkietem-tylko-w-workerze",
+      comment: "mirror i strumien Parkietu dzialaja w workerze; scena dostaje stan lacza w migawce (Link), co najwyzej typy",
+      severity: "error",
+      from: { path: "^apps/web/src/", pathNot: "^apps/web/src/sim/" },
+      to: { path: "^apps/web/src/sim/parkiet", dependencyTypesNot: ["type-only"] },
+    },
+    {
       name: "symulacja-i-geometria-bez-grafiki",
       comment: "sim/ i world/ to czysta logika testowana w Node: bez three.js i bez sceny",
       severity: "error",

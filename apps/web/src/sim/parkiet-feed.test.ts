@@ -43,15 +43,22 @@ describe("ParkietFeed", () => {
     expect(feed.quote("STW")).toStrictEqual({ bids: [], asks: [], tape: [] }); // bez pola last, nie last: undefined
   });
 
-  it("drops what the last book already contains: an older book and trades from before it", () => {
+  it("drops an older book after a newer one, but keeps trades from before the book (the book has no trades)", () => {
     const feed = new ParkietFeed();
     feed.handle(book("MTK", 10, [["78.00", 5]], []));
     feed.handle(trade("MTK", 9, "77.00", 1, "SELL"));
-    feed.handle(trade("MTK", 10, "77.50", 1, "SELL"));
     feed.handle(book("MTK", 8, [["70.00", 1]], []));
-    expect(feed.quote("MTK")).toEqual({ bids: [{ price: 7800, quantity: 5 }], asks: [], tape: [] });
+    feed.handle(trade("MTK", 9, "77.00", 1, "SELL")); // ta sama transakcja drugi raz
     feed.handle(trade("MTK", 11, "78.00", 2, "SELL"));
-    expect(feed.quote("MTK").last).toBe(7800);
+    expect(feed.quote("MTK")).toEqual({
+      last: 7800,
+      bids: [{ price: 7800, quantity: 5 }],
+      asks: [],
+      tape: [
+        { seq: 1, price: 7700, quantity: 1, side: "SELL" },
+        { seq: 2, price: 7800, quantity: 2, side: "SELL" },
+      ],
+    });
   });
 
   it("keeps the last forty trades and ignores companies and message types it does not know", () => {
@@ -70,7 +77,7 @@ describe("withParkiet", () => {
   const session = new Session({ seed: 3, stepsPerDay: 4 });
   for (let i = 0; i < 6; i++) session.tick();
   const shot = (focus: "RUD" | null) => new Observer(3).snapshot(session, new SimClock(4), focus);
-  const link = (state: Link["state"]): Link => ({ state, sent: 10, matched: 10, mismatched: 0, pending: 0, failed: 0, streaming: true });
+  const link = (state: Link["state"], over: Partial<Link> = {}): Link => ({ state, sent: 10, matched: 10, mismatched: 0, pending: 0, failed: 0, streaming: true, waiting: false, ...over });
   const feed = new ParkietFeed();
   feed.handle(book("RUD", 4, [["30.00", 9]], [["30.10", 2]]));
   feed.handle(trade("RUD", 5, "30.10", 2, "BUY"));
@@ -106,5 +113,13 @@ describe("withParkiet", () => {
   it("until the link is ready Parkiet's prices stay off the scene, only the link state is shown", () => {
     const local = shot("RUD");
     for (const state of ["connecting", "error"] as const) expect(withParkiet(local, feed, link(state))).toEqual({ ...local, link: link(state) });
+  });
+
+  it("falls back to the browser when the stream is closed (frozen prices) or after any difference (another market)", () => {
+    const local = shot("RUD");
+    const closed = link("ready", { streaming: false });
+    const differs = link("ready", { mismatched: 1 });
+    expect(withParkiet(local, feed, closed)).toEqual({ ...local, link: closed });
+    expect(withParkiet(local, feed, differs)).toEqual({ ...local, link: differs });
   });
 });

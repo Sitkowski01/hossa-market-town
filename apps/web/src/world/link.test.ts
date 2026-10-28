@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Link } from "../sim/protocol.js";
 import { linkLabel } from "./link.js";
 
-const link = (over: Partial<Link> = {}): Link => ({ state: "ready", sent: 12_502, matched: 12_500, mismatched: 0, pending: 2, failed: 0, streaming: true, ...over });
+const link = (over: Partial<Link> = {}): Link => ({ state: "ready", sent: 12_502, matched: 12_500, mismatched: 0, pending: 2, failed: 0, streaming: true, waiting: false, ...over });
 
 describe("linkLabel", () => {
   it("everything agrees: the number of commands Parkiet answered the same way", () => {
@@ -11,10 +11,10 @@ describe("linkLabel", () => {
   });
 
   it("says when the simulation waits for the exchange to catch up", () => {
-    const label = linkLabel(link({ pending: 900 }));
+    const label = linkLabel(link({ pending: 900, waiting: true }));
     expect(label).toMatchObject({ text: "Parkiet ✓ 12 500 zgodnych · czeka na giełdę", tone: "czeka" });
     expect(label.title).toContain("obsłuży 900 zleceń");
-    expect(linkLabel(link({ pending: 600 })).tone).toBe("ok");
+    expect(linkLabel(link({ pending: 900 })).tone).toBe("ok"); // o czekaniu decyduje worker
   });
 
   it("shows connecting, a failed connection and differences with the reason in the tooltip", () => {

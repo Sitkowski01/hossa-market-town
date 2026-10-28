@@ -86,6 +86,8 @@ export interface Snapshot {
 export interface Link extends LinkStats {
   /** Czy strumien notowan /ws/market jest otwarty. */
   readonly streaming: boolean;
+  /** Symulacja stoi, bo w kolejkach do Parkietu czeka za duzo polecen. */
+  readonly waiting: boolean;
 }
 
 export type ToWorker =

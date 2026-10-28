@@ -1,4 +1,3 @@
-import { MAX_BACKLOG } from "../sim/parkiet.js";
 import type { Link } from "../sim/protocol.js";
 import { count } from "./format.js";
 
@@ -18,8 +17,8 @@ export function linkLabel(link: Link): LinkLabel {
   if (link.state === "connecting") return { text: "Parkiet · łączenie…", tone: "czeka", title: ABOUT };
   if (link.state === "error") return { text: "Parkiet · brak połączenia", tone: "blad", title: why };
   if (link.mismatched > 0) return { text: `Parkiet · różnice: ${count(link.mismatched)}`, tone: "blad", title: why };
-  if (!link.streaming) return { text: "Parkiet · strumień zamknięty", tone: "blad", title: "Strumień notowań /ws/market się rozłączył — kursy na scenie są z przeglądarki." };
+  if (!link.streaming) return { text: "Parkiet · strumień zamknięty", tone: "blad", title: "Strumień notowań /ws/market się rozłączył — kursy na scenie są z przeglądarki, łącze próbuje wrócić." };
   const agreed = `Parkiet ✓ ${count(link.matched)} zgodnych`;
-  if (link.pending > MAX_BACKLOG) return { text: `${agreed} · czeka na giełdę`, tone: "czeka", title: `${ABOUT} Czas stoi, aż Parkiet obsłuży ${count(link.pending)} zleceń z kolejki.` };
+  if (link.waiting) return { text: `${agreed} · czeka na giełdę`, tone: "czeka", title: `${ABOUT} Czas stoi, aż Parkiet obsłuży ${count(link.pending)} zleceń z kolejki.` };
   return { text: agreed, tone: "ok", title: link.failed > 0 ? `${ABOUT} Błędy połączenia: ${count(link.failed)}, ostatni: ${why}` : ABOUT };
 }
