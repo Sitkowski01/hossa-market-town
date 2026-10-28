@@ -22,6 +22,8 @@ const vec = (v: THREE.Vector3): Vec3 => [v.x, v.y, v.z];
 /** Jak szybko obraz dogania przesuniecie pod panel (na sekunde). */
 const SHIFT_RATE = 6;
 
+const still = matchMedia("(prefers-reduced-motion: reduce)");
+
 /**
  * Kamera w trybie panelu: podlatuje do kliknietego zakladu, patrzy na niego z tego samego
  * kierunku co wczesniej i pozwala go obracac (OrbitControls kreci sie wokol budynku).
@@ -51,7 +53,8 @@ export function createDirector(stage: Stage): Director {
   // jako domu punktu w polowie drogi
   let returning = false;
   const fly = (to: Pose, from = now(), duration = FLIGHT_MS, intro = false) => {
-    flight = { from, to, elapsed: 0, prev: -1, duration, intro };
+    // przy ograniczonym ruchu kamera przeskakuje od razu (przelot trwa jedna klatke)
+    flight = { from, to, elapsed: 0, prev: -1, duration: still.matches ? 1 : duration, intro };
     controls.enabled = false;
   };
 
