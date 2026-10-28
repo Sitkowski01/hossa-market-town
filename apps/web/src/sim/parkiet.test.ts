@@ -43,7 +43,9 @@ function fakeParkiet(options: FakeOptions = {}): { http: Http; books: Map<string
       const id = nextId++;
       const price = body.price === undefined ? 0 : Math.round(Number(body.price) * 100);
       const events = (options.tamper ?? ((e) => e))(book.submit(orderRequest(id, body.side, body.type, price, body.quantity)));
-      return reply({ orderId: id, runId: 3, events: events.map(remote) }, 201);
+      // kolejnosc pol w JSON-ie z Javy nie jest czescia kontraktu: tu celowo odwrotna
+      const reversed = events.map((e) => Object.fromEntries(Object.entries(remote(e)).reverse()));
+      return reply({ orderId: id, runId: 3, events: reversed }, 201);
     }
     const [, id = "0"] = /orders\/(\d+)\?runId=3$/.exec(rest) ?? [];
     return book.cancel(Number(id)) ? reply({}) : reply({}, 404);
@@ -101,10 +103,12 @@ describe("ParkietMirror", () => {
     mirror.push({ kind: "submit", ticker: "STW", orderId: 3, side: "SELL", type: "MARKET", price: 0, quantity: 5, events: [{ kind: "TRADE", makerOrderId: 1, takerOrderId: 3, takerSide: "SELL", price: 4000, quantity: 5 }] });
     mirror.push({ kind: "cancel", ticker: "STW", orderId: 2 });
     mirror.push({ kind: "cancel", ticker: "STW", orderId: 1 }); // juz zrealizowane: nie ma czego wysylac
+    mirror.push({ kind: "cancel", ticker: "STW", orderId: 2 }); // drugi raz: numer zapomniany, DELETE nie idzie
     await mirror.idle();
     expect(parkiet.requests).toContain("DELETE /api/instruments/STW/orders/51?runId=3");
-    expect(mirror.stats()).toMatchObject({ sent: 5, matched: 4, mismatched: 0, failed: 1 });
-    expect(mirror.stats().lastError).toContain("zlecenie 1 nie doszło");
+    expect(mirror.stats()).toMatchObject({ sent: 6, matched: 4, mismatched: 0, failed: 2 });
+    expect(mirror.stats().lastError).toContain("zlecenie 2 nie doszło");
+    expect(parkiet.requests.filter((r) => r.startsWith("DELETE"))).toHaveLength(1);
   });
 
   it("notices when Parkiet answers differently than the engine in the browser", async () => {
@@ -132,6 +136,12 @@ describe("ParkietMirror", () => {
     const strange = new ParkietMirror(BASE, "h", fakeParkiet({ symbols: ["RUD", "CDR"] }).http);
     await strange.idle();
     expect(strange.stats()).toMatchObject({ state: "error", lastError: "Parkiet nie zna spółek STW, MTK, BPT, KSZ, GRS" });
+
+    const onlyAsks = fakeParkiet();
+    onlyAsks.books.get("KSZ")?.submit(orderRequest(1, "SELL", "LIMIT", 100, 1));
+    const asks = new ParkietMirror(BASE, "h", onlyAsks.http);
+    await asks.idle();
+    expect(asks.stats().state).toBe("error");
 
     const used = fakeParkiet();
     used.books.get("GRS")?.submit(orderRequest(1, "BUY", "LIMIT", 100, 1));

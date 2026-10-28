@@ -7,6 +7,7 @@ const link = (over: Partial<Link> = {}): Link => ({ state: "ready", sent: 12_502
 describe("linkLabel", () => {
   it("everything agrees: the number of commands Parkiet answered the same way", () => {
     expect(linkLabel(link())).toEqual({ text: "Parkiet ✓ 12 500 zgodnych", tone: "ok", title: expect.stringContaining("giełda w Javie") as string });
+    expect(linkLabel(link()).title).not.toContain("Błędy");
   });
 
   it("says when the simulation waits for the exchange to catch up", () => {
@@ -24,7 +25,7 @@ describe("linkLabel", () => {
   });
 
   it("warns when the quote stream is closed, and mentions connection errors without hiding the agreement", () => {
-    expect(linkLabel(link({ streaming: false }))).toMatchObject({ text: "Parkiet · strumień zamknięty", tone: "blad" });
+    expect(linkLabel(link({ streaming: false }))).toMatchObject({ text: "Parkiet · strumień zamknięty", tone: "blad", title: expect.stringContaining("kursy na scenie są z przeglądarki") as string });
     const label = linkLabel(link({ failed: 3, lastError: "HTTP 503 z /api/instruments/RUD/orders" }));
     expect(label).toMatchObject({ text: "Parkiet ✓ 12 500 zgodnych", tone: "ok" });
     expect(label.title).toMatch(/Błędy połączenia: 3, ostatni: HTTP 503/);

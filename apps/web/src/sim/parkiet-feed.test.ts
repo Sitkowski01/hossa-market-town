@@ -40,7 +40,7 @@ describe("ParkietFeed", () => {
         { seq: 2, price: 3440, quantity: 2, side: "SELL" },
       ],
     });
-    expect(feed.quote("STW")).toEqual({ bids: [], asks: [], tape: [] });
+    expect(feed.quote("STW")).toStrictEqual({ bids: [], asks: [], tape: [] }); // bez pola last, nie last: undefined
   });
 
   it("drops what the last book already contains: an older book and trades from before it", () => {
