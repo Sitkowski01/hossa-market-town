@@ -149,6 +149,29 @@ body {
   color: var(--spadek);
 }
 
+.hud-parkiet {
+  padding: 2px 8px;
+  border: 1px solid var(--krawedz);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  cursor: help;
+}
+
+.hud-parkiet[data-stan="ok"] {
+  border-color: var(--wzrost);
+  color: var(--wzrost);
+}
+
+.hud-parkiet[data-stan="czeka"] {
+  border-color: var(--wycena);
+  color: var(--wycena);
+}
+
+.hud-parkiet[data-stan="blad"] {
+  border-color: var(--spadek);
+  color: var(--spadek);
+}
+
 .hud-tempo {
   display: flex;
   gap: 4px;

@@ -1,5 +1,6 @@
 import { SPEEDS, type Snapshot, type Speed } from "../sim/protocol.js";
 import { change, trend } from "../world/format.js";
+import { linkLabel } from "../world/link.js";
 import { setData, setPressed, setText } from "./dom.js";
 
 export interface Hud {
@@ -16,10 +17,12 @@ export function createHud(onSpeed: (speed: Speed) => void): Hud {
     <strong class="hud-nazwa">Hossa</strong>
     <span class="hud-czas" data-testid="czas"></span>
     <span class="hud-indeks" data-testid="indeks"></span>
-    <nav class="hud-tempo" aria-label="Tempo czasu"></nav>`;
+    <nav class="hud-tempo" aria-label="Tempo czasu"></nav>
+    <span class="hud-parkiet" data-testid="parkiet" role="status" hidden></span>`;
   const time = bar.querySelector(".hud-czas") as HTMLElement;
   const index = bar.querySelector(".hud-indeks") as HTMLElement;
   const nav = bar.querySelector(".hud-tempo") as HTMLElement;
+  const parkiet = bar.querySelector(".hud-parkiet") as HTMLElement;
   const buttons = SPEEDS.map((s) => {
     const b = document.createElement("button");
     b.type = "button";
@@ -44,6 +47,13 @@ export function createHud(onSpeed: (speed: Speed) => void): Hud {
       setText(index, `Indeks ${snapshot.index.toFixed(1).replace(".", ",")} (${change(pct)})`);
       setData(index, "kierunek", trend(pct));
       for (const { speed, button } of buttons) setPressed(button, speed === snapshot.speed);
+      if (snapshot.link) {
+        const label = linkLabel(snapshot.link);
+        parkiet.hidden = false;
+        setText(parkiet, label.text);
+        setData(parkiet, "stan", label.tone);
+        if (parkiet.title !== label.title) parkiet.title = label.title;
+      }
     },
   };
 }
