@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { OrderIds, SymbolMarket, TICK, roundTick, type Trader } from "./symbol-market.js";
+import { OrderIds, SymbolMarket, TICK, roundTick, type Command, type Trader } from "./symbol-market.js";
 
 const trader = (id: string): Trader => ({ id, account: { position: 0, cash: 0 }, resting: new Set() });
 
@@ -155,5 +155,31 @@ describe("SymbolMarket bars and tape", () => {
     expect(m.tape.length).toBe(40);
     expect(m.tape.at(-1)?.seq).toBe(52);
     expect(m.tape[0]?.seq).toBe(13);
+  });
+});
+
+describe("SymbolMarket: commands for the connected mode", () => {
+  it("reports every order with the rounded price, the clipped quantity and the engine's result", () => {
+    const seen: Command[] = [];
+    const m = new SymbolMarket("STW", 4000, new OrderIds(), (c) => seen.push(c));
+    m.submit(trader("s"), "SELL", "LIMIT", 4002, 10.7);
+    m.submit(trader("b"), "BUY", "MARKET", 9999, 4);
+    expect(seen).toEqual([
+      { kind: "submit", ticker: "STW", orderId: 1, side: "SELL", type: "LIMIT", price: 4000, quantity: 10, events: [{ kind: "RESTED", orderId: 1, side: "SELL", price: 4000, quantity: 10 }] },
+      { kind: "submit", ticker: "STW", orderId: 2, side: "BUY", type: "MARKET", price: 0, quantity: 4, events: [{ kind: "TRADE", makerOrderId: 1, takerOrderId: 2, takerSide: "BUY", price: 4000, quantity: 4 }] },
+    ]);
+  });
+
+  it("reports a cancel only while the order still rests, and nothing for an empty order", () => {
+    const seen: Command[] = [];
+    const m = new SymbolMarket("STW", 4000, new OrderIds(), (c) => seen.push(c));
+    const maker = trader("m");
+    m.submit(maker, "BUY", "LIMIT", 3900, 0.5);
+    m.submit(maker, "BUY", "LIMIT", 3900, 5);
+    m.submit(trader("t"), "SELL", "MARKET", 0, 5);
+    m.cancel(maker, 1);
+    m.submit(maker, "BUY", "LIMIT", 3800, 2);
+    m.cancelAll(maker);
+    expect(seen.map((c) => `${c.kind} ${String(c.orderId)}`)).toEqual(["submit 1", "submit 2", "submit 3", "cancel 3"]);
   });
 });

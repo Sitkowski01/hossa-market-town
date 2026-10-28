@@ -1,11 +1,13 @@
 import { COMPANIES, Economy, Rng, TICKERS, type DayReport, type EconomicEvent, type News, type Ticker } from "@hossa/economy";
 import { crowdFor, type Bot } from "./bots.js";
-import { OrderIds, SymbolMarket } from "./symbol-market.js";
+import { OrderIds, SymbolMarket, type CommandListener } from "./symbol-market.js";
 
 export interface SessionOptions {
   readonly seed: number;
   /** Krokow gieldy na jeden dzien gospodarki. */
   readonly stepsPerDay?: number;
+  /** Dostaje kazde zlecenie i anulowanie wszystkich rynkow, w kolejnosci wykonania (tryb polaczony). */
+  readonly onCommand?: CommandListener;
 }
 
 /**
@@ -38,7 +40,7 @@ export class Session {
     const markets = {} as Record<Ticker, SymbolMarket>;
     const bots = {} as Record<Ticker, Bot[]>;
     for (const t of TICKERS) {
-      markets[t] = new SymbolMarket(t, this.economy.initialFair[t], ids);
+      markets[t] = new SymbolMarket(t, this.economy.initialFair[t], ids, options.onCommand);
       bots[t] = crowdFor(t, this.rng);
       this.fairHistory[t] = [this.economy.fairValue(t)];
     }

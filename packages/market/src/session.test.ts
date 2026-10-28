@@ -1,6 +1,7 @@
 import { COMPANIES, TICKERS, type EconomicEvent, type Ticker } from "@hossa/economy";
 import { describe, expect, it } from "vitest";
 import { Session } from "./session.js";
+import type { Command } from "./symbol-market.js";
 
 const SEEDS = [1, 2, 3, 4, 5];
 
@@ -27,6 +28,20 @@ describe("Session", () => {
     };
     expect(run(7)).toBe(run(7));
     expect(run(8)).not.toBe(run(7));
+  });
+
+  it("passes every command of every market to the listener, in the order they ran", () => {
+    const commands: Command[] = [];
+    const session = new Session({ seed: 7, onCommand: (c) => commands.push(c) });
+    for (let i = 0; i < 40; i++) session.tick();
+    const submits = commands.filter((c) => c.kind === "submit");
+    expect(new Set(commands.map((c) => c.ticker)).size).toBe(6);
+    expect(submits.map((c) => c.orderId)).toEqual([...submits.map((c) => c.orderId)].sort((a, b) => a - b));
+    expect(commands.some((c) => c.kind === "cancel")).toBe(true);
+    // ten sam przebieg co bez sluchacza: tryb polaczony nie zmienia sesji
+    const plain = new Session({ seed: 7 });
+    for (let i = 0; i < 40; i++) plain.tick();
+    expect(plain.index()).toBe(session.index());
   });
 
   it("keeps the books balanced: every share bought was sold and every grosz paid was received", () => {

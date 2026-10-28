@@ -46,6 +46,17 @@ export interface Print {
   readonly side: Side;
 }
 
+/**
+ * Polecenie, ktore rynek wykonal na swoim arkuszu, razem z wynikiem silnika. Tryb polaczony
+ * powtarza je na prawdziwym Parkiecie i porownuje wyniki. Anulowanie zgloszone tylko wtedy,
+ * gdy zlecenie jeszcze czekalo — inaczej nie bylo czego powtarzac.
+ */
+export type Command =
+  | { readonly kind: "submit"; readonly ticker: Ticker; readonly orderId: number; readonly side: Side; readonly type: OrderType; readonly price: number; readonly quantity: number; readonly events: readonly BookEvent[] }
+  | { readonly kind: "cancel"; readonly ticker: Ticker; readonly orderId: number };
+
+export type CommandListener = (command: Command) => void;
+
 const HISTORY = 400;
 const TAPE = 40;
 
@@ -74,6 +85,7 @@ export class SymbolMarket {
     readonly ticker: Ticker,
     start: number,
     private readonly ids: OrderIds,
+    private readonly listener?: CommandListener,
   ) {
     this.last = roundTick(start);
     this.bar = this.freshCandle(0);
@@ -84,7 +96,9 @@ export class SymbolMarket {
     const qty = Math.min(MAX_QUANTITY, Math.floor(quantity));
     if (qty <= 0) return [];
     const id = this.ids.next();
-    const events = this.book.submit(orderRequest(id, side, type, type === "LIMIT" ? roundTick(price) : 0, qty));
+    const limit = type === "LIMIT" ? roundTick(price) : 0;
+    const events = this.book.submit(orderRequest(id, side, type, limit, qty));
+    this.listener?.({ kind: "submit", ticker: this.ticker, orderId: id, side, type, price: limit, quantity: qty, events });
     for (const e of events) {
       if (e.kind === "RESTED") {
         this.owners.set(id, { trader, remaining: e.quantity });
@@ -97,7 +111,10 @@ export class SymbolMarket {
   }
 
   cancel(trader: Trader, orderId: number): void {
-    if (this.book.cancel(orderId)) this.owners.delete(orderId);
+    if (this.book.cancel(orderId)) {
+      this.owners.delete(orderId);
+      this.listener?.({ kind: "cancel", ticker: this.ticker, orderId });
+    }
     trader.resting.delete(orderId);
   }
 
