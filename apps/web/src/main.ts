@@ -8,7 +8,7 @@ import { createPicker, onPick } from "./scene/picking.js";
 import { createPickets } from "./scene/pickets.js";
 import { createProps } from "./scene/props.js";
 import { createRain } from "./scene/rain.js";
-import { createSky } from "./scene/sky.js";
+import { createGroundShadow, createSky } from "./scene/sky.js";
 import { createSmoke } from "./scene/smoke.js";
 import { createStage } from "./scene/stage.js";
 import { installSzlifHook } from "./scene/szlif.js";
@@ -121,7 +121,7 @@ const model = await loadModel(import.meta.env.BASE_URL, (fraction) => {
   if (loadingText) loadingText.textContent = `Nie udało się wczytać makiety (${error instanceof Error ? error.message : String(error)}). Odśwież stronę.`;
   throw error;
 });
-stage.scene.add(model.root);
+stage.scene.add(model.root, createGroundShadow(model.root));
 const trucks = createTrucks(model, stage.scene);
 const props = createProps(model, stage.scene);
 const tickers = createTickers(model, stage.scene);

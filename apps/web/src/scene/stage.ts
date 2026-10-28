@@ -30,7 +30,8 @@ export interface Stage {
  * pas notowan, latarnia morska.
  */
 export function createStage(canvas: HTMLCanvasElement): Stage {
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: "high-performance" });
+  renderer.setClearColor(0x000000, 0);
   const lowPower = matchMedia("(pointer: coarse)").matches;
   // ekran telefonu ma gestosc 3; przy 1,5 makieta jest ostra, a GPU liczy czterokrotnie mniej pikseli
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, lowPower ? 1.5 : 2));

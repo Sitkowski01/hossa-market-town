@@ -28,8 +28,7 @@ function configure(sky: Sky, sun: THREE.Vector3, storm: boolean): void {
  * pochodzi z fizycznego nieba (Sky), przeliczanego do mapy otoczenia tylko wtedy, gdy slonce
  * przesunie sie zauwazalnie — i z ograniczona sila, zeby jasne tynki sie nie przepalaly.
  * Samego nieba nie widac: jest o rzedy wielkosci jasniejsze niz makieta i rozlewaloby sie
- * w poswiacie. Tlo to studyjna winieta w kolorze mgly: jasniej za makieta, ciemniej przy brzegach
- * ekranu — jak makieta sfotografowana na stole.
+ * w poswiacie. Tlo daje strona (grafit z portfolio pod przezroczystym canvasem).
  */
 export function createSky(renderer: THREE.WebGLRenderer, scene: THREE.Scene, lowPower = false): SkyLight {
 
@@ -51,8 +50,6 @@ export function createSky(renderer: THREE.WebGLRenderer, scene: THREE.Scene, low
   scene.add(sky, moon);
   const fog = new THREE.Fog(FOG_DAY, 500, 1500);
   scene.fog = fog;
-  const backdrop = createBackdrop();
-  scene.background = backdrop.texture;
 
   const pmrem = new THREE.PMREMGenerator(renderer);
   const envScene = new THREE.Scene();
@@ -68,13 +65,13 @@ export function createSky(renderer: THREE.WebGLRenderer, scene: THREE.Scene, low
       sun.position.copy(dir).multiplyScalar(SUN_DISTANCE);
       sun.intensity = DAY_SUN * light.day * (storm ? 0.2 : 1);
       sun.visible = light.elevation > -2;
-      sky.intensity = 0.25 + 1.1 * (1 - light.day);
-      moon.intensity = 1.2 * (1 - light.day);
+      // tlo strony jest prawie czarne, wiec noca makieta potrzebuje wiecej ksiezyca, zeby nie zlac sie z nim
+      sky.intensity = 0.25 + 1.45 * (1 - light.day);
+      moon.intensity = 1.6 * (1 - light.day);
 
       fog.color.copy(FOG_DAY).lerp(FOG_STORM, storm ? 1 : 0).lerp(NIGHT_BLUE, 1 - light.day);
       fog.near = storm ? 120 : 500;
       fog.far = storm ? 700 : 1500;
-      backdrop.paint(fog.color);
 
       // mapa otoczenia: przeliczana, gdy slonce przesunie sie o ~2° albo zmieni sie pogoda, ale
       // najwyzej raz na sekunde — przy 16× slonce rusza sie o 2° w kazdej klatce
@@ -91,39 +88,31 @@ export function createSky(renderer: THREE.WebGLRenderer, scene: THREE.Scene, low
   };
 }
 
-/** Tlo ekranu: gradient promienisty z kolorow mgly, odmalowywany tylko przy zmianie koloru. */
-function createBackdrop(): { texture: THREE.CanvasTexture; paint(colour: THREE.Color): void } {
+/**
+ * Podest pod cokolem: tlo strony jest prawie czarnym grafitem z portfolio (canvas przezroczysty),
+ * wiec czarny cien bylby niewidoczny, a makieta wisialaby w prozni. Pod spodem lezy plama
+ * jasniejszego grafitu jak swiatlo na stole fotograficznym, ciemniejsza tuz przy krawedzi cokolu
+ * (cien kontaktowy). Bez zapisu glebokosci — nie zaslania niczego i nie bierze udzialu w cieniach.
+ */
+export function createGroundShadow(root: THREE.Object3D): THREE.Mesh {
+  const box = new THREE.Box3().setFromObject(root);
+  const size = box.getSize(new THREE.Vector3());
   const canvas = document.createElement("canvas");
-  canvas.width = 256;
-  canvas.height = 256;
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
+  canvas.width = canvas.height = 128;
   const g = canvas.getContext("2d") as CanvasRenderingContext2D;
-  const light = new THREE.Color();
-  const dark = new THREE.Color();
-  const black = new THREE.Color(0x000000);
-  const white = new THREE.Color(0xffffff);
-  let painted = "";
-  let paintedAt = -Infinity;
-  return {
-    texture,
-    paint(colour) {
-      const key = colour.getHexString();
-      // o swicie i zmierzchu kolor zmienia sie co klatke; gradient i wgranie tekstury najwyzej 4 razy na sekunde
-      const now = performance.now();
-      if (key === painted || now - paintedAt < 250) return;
-      painted = key;
-      paintedAt = now;
-      light.copy(colour).lerp(white, 0.1);
-      dark.copy(colour).lerp(black, 0.22);
-      // srodek nieco nad srodkiem ekranu — tam zwykle stoi makieta
-      const grad = g.createRadialGradient(128, 100, 10, 128, 100, 200);
-      grad.addColorStop(0, `#${light.getHexString(THREE.SRGBColorSpace)}`);
-      grad.addColorStop(0.55, `#${colour.getHexString(THREE.SRGBColorSpace)}`);
-      grad.addColorStop(1, `#${dark.getHexString(THREE.SRGBColorSpace)}`);
-      g.fillStyle = grad;
-      g.fillRect(0, 0, 256, 256);
-      texture.needsUpdate = true;
-    },
-  };
+  const grad = g.createRadialGradient(64, 64, 18, 64, 64, 64);
+  grad.addColorStop(0, "rgba(51,65,85,0.55)");
+  grad.addColorStop(0.5, "rgba(30,41,59,0.4)");
+  grad.addColorStop(1, "rgba(15,23,42,0)");
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 128, 128);
+  const texture = new THREE.CanvasTexture(canvas);
+  const shadow = new THREE.Mesh(
+    new THREE.PlaneGeometry(size.x * 1.45, size.z * 1.6),
+    new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false, toneMapped: false, fog: false }),
+  );
+  shadow.rotation.x = -Math.PI / 2;
+  shadow.position.set((box.min.x + box.max.x) / 2, box.min.y - 0.5, (box.min.z + box.max.z) / 2 + size.z * 0.04);
+  shadow.renderOrder = -1;
+  return shadow;
 }
