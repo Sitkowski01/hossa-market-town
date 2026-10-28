@@ -225,6 +225,34 @@ main {
   pointer-events: none;
 }
 
+/* --- wspolne dla paneli nad makieta: karty jak w portfolio --- */
+
+.hud,
+.notowania,
+.wiadomosci,
+.panel {
+  background: var(--powierzchnia);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--krawedz);
+  border-radius: var(--promien);
+  box-shadow: var(--cien);
+}
+
+[data-kierunek="wzrost"] {
+  color: var(--wzrost-tekst);
+}
+
+[data-kierunek="spadek"] {
+  color: var(--spadek-tekst);
+}
+
+button:focus-visible {
+  outline: 2px solid var(--wzrost);
+  outline-offset: 2px;
+}
+
+/* --- pasek u gory --- */
+
 .hud {
   position: fixed;
   top: 12px;
@@ -236,105 +264,102 @@ main {
   gap: 8px 18px;
   width: fit-content;
   max-width: calc(100% - 24px);
-  padding: 8px 14px;
-  border-radius: 10px;
-  background: rgb(11 18 32 / 82%);
-  backdrop-filter: blur(6px);
-  font-size: 0.95rem;
-  font-variant-numeric: tabular-nums;
+  box-sizing: border-box;
+  padding: 7px 8px 7px 14px;
+  font: 0.85rem/1.4 var(--mono);
 }
 
 .hud-nazwa {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font: 700 1.05rem/1 var(--display);
+  letter-spacing: -0.01em;
+  color: var(--tekst-jasny);
+}
+
+/* zielona kropka "na zywo" jak w naglowku portfolio */
+.hud-nazwa::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--wzrost);
+  box-shadow: 0 0 8px var(--wzrost);
+  animation: puls 2.4s ease-in-out infinite;
+}
+
+.hud-czas {
+  color: var(--tekst);
+  text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
-.hud-indeks[data-kierunek="wzrost"] {
-  color: var(--wzrost);
-}
-
-.hud-indeks[data-kierunek="spadek"] {
-  color: var(--spadek);
+.hud-indeks {
+  color: var(--przygaszony);
 }
 
 .hud-parkiet {
   padding: 2px 8px;
   border: 1px solid var(--krawedz);
-  border-radius: 6px;
-  font-size: 0.85rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
   cursor: help;
 }
 
 .hud-parkiet[data-stan="ok"] {
-  border-color: var(--wzrost);
-  color: var(--wzrost);
+  border-color: rgb(16 185 129 / 45%);
+  background: var(--wzrost-tlo);
+  color: var(--wzrost-tekst);
 }
 
 .hud-parkiet[data-stan="czeka"] {
-  border-color: var(--wycena);
+  border-color: rgb(224 180 76 / 45%);
   color: var(--wycena);
 }
 
 .hud-parkiet[data-stan="blad"] {
-  border-color: var(--spadek);
-  color: var(--spadek);
+  border-color: rgb(239 68 68 / 45%);
+  background: var(--spadek-tlo);
+  color: var(--spadek-tekst);
 }
 
 .hud-tempo {
   display: flex;
-  gap: 4px;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--krawedz);
+  border-radius: 8px;
+  background: rgb(3 7 18 / 60%);
 }
 
 .hud-tempo button {
   min-width: 44px;
-  min-height: 32px;
-  border: 1px solid #2a3a52;
+  min-height: 30px;
+  border: 1px solid transparent;
   border-radius: 6px;
   background: transparent;
-  color: var(--tekst);
+  color: var(--przygaszony);
   font: inherit;
   cursor: pointer;
+  transition:
+    background-color 0.15s,
+    color 0.15s;
+}
+
+.hud-tempo button:hover {
+  color: var(--tekst-jasny);
 }
 
 .hud-tempo button[aria-pressed="true"] {
-  background: #1d2b42;
-  border-color: var(--wzrost);
+  background: var(--wzrost-tlo);
+  border-color: rgb(16 185 129 / 45%);
+  color: var(--wzrost-tekst);
+  box-shadow: var(--poswiata);
 }
 
-.hud-tempo button:focus-visible {
-  outline: 2px solid var(--wzrost);
-  outline-offset: 2px;
-}
-
-/* --- wspolne dla paneli nad makieta --- */
-
-:root {
-  --szklo: rgb(11 18 32 / 86%);
-  --krawedz: #22324a;
-  --wycena: #e0b44c;
-  --panel: min(440px, 42vw);
-}
-
-.notowania,
-.wiadomosci,
-.panel {
-  background: var(--szklo);
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--krawedz);
-  border-radius: 12px;
-  font-variant-numeric: tabular-nums;
-}
-
-[data-kierunek="wzrost"] {
-  color: var(--wzrost);
-}
-
-[data-kierunek="spadek"] {
-  color: var(--spadek);
-}
-
-button:focus-visible {
-  outline: 2px solid var(--wzrost);
-  outline-offset: 2px;
+.hud-tempo button:active {
+  scale: 0.96;
 }
 
 /* --- tablica notowan --- */

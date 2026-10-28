@@ -37,6 +37,11 @@ export function createHud(onSpeed: (speed: Speed) => void): Hud {
     return { speed: s, button: b };
   });
   document.body.append(bar);
+  // lista notowan stoi pod paskiem; pasek zawija sie (waski ekran, otwarty panel), wiec jego dol
+  // idzie do CSS jako zmienna, zamiast sztywnych 64 px, pod ktorymi znikala druga linia z pauza
+  new ResizeObserver(() => {
+    document.documentElement.style.setProperty("--hud-dol", `${String(Math.round(bar.getBoundingClientRect().bottom))}px`);
+  }).observe(bar);
 
   return {
     update(snapshot, hour) {
