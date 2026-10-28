@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { FLIGHT_MS, INTRO_MS, ease, flightAt, focusPose, introPose, tickerOf, type Pose } from "./flight.js";
+import { ELEVATION, FLIGHT_MS, INTRO_MS, ease, flightAt, focusPose, introPose, tickerOf, type Pose } from "./flight.js";
 
 describe("tickerOf", () => {
   it("rozpoznaje spolke po przedrostku nazwy z Blendera", () => {
@@ -51,13 +51,13 @@ describe("focusPose", () => {
     // kamera byla na wschod od celu (+x) — i dalej jest na wschod
     expect(x - 10).toBeGreaterThan(0);
     expect(z - 20).toBeCloseTo(0);
-    expect(y).toBeCloseTo(80 * Math.sin(0.62));
+    expect(y).toBeCloseTo(80 * Math.sin(ELEVATION));
   });
 
   it("z kamery prosto z gory patrzy od poludnia", () => {
     const p = focusPose({ position: [5, 300, 5], target: [5, 0, 5] }, [0, 0, 0], 50);
     expect(p.position[0]).toBeCloseTo(0);
-    expect(p.position[2]).toBeCloseTo(50 * Math.cos(0.62));
+    expect(p.position[2]).toBeCloseTo(50 * Math.cos(ELEVATION));
   });
 });
 

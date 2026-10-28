@@ -11,8 +11,11 @@ export interface Pose {
 
 /** Czas przelotu kamery do budynku i z powrotem. */
 export const FLIGHT_MS = 1200;
-/** Kat kamery nad horyzontem po podlocie: ok. 35°, budynek widac z ukosa, razem z placem przed nim. */
-const ELEVATION = 0.62;
+/**
+ * Kat kamery nad horyzontem po podlocie: ok. 43°, budynek widac z ukosa razem z placem przed nim,
+ * a kominy i dym sasiada nie zaslaniaja go (przy 35° huta stala na pierwszym planie kopalni).
+ */
+export const ELEVATION = 0.75;
 
 const TICKER = new RegExp(`^(${TICKERS.join("|")})(_|$)`);
 

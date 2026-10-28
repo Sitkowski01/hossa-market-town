@@ -13,7 +13,8 @@ export interface Director {
   /** Przelot powitalny do obecnego ujecia; pomijany, gdy kamera juz gdzies leci. */
   intro(): void;
   /** Ile ekranu zaslania panel: obraz przesuwa sie tak, zeby budynek byl w srodku reszty. */
-  setInset(right: number, bottom: number): void;
+  /** Ile ekranu zaslania interfejs: lista notowan z lewej, panel z prawej albo od dolu (piksele CSS). */
+  setInset(left: number, right: number, bottom: number): void;
   update(now: number): void;
 }
 
@@ -54,7 +55,7 @@ export function createDirector(stage: Stage): Director {
     controls.enabled = false;
   };
 
-  const inset = { right: 0, bottom: 0 };
+  const inset = { left: 0, right: 0, bottom: 0 };
   const shift = { x: 0, y: 0 };
   let last = performance.now();
   let applied = "";
@@ -87,7 +88,8 @@ export function createDirector(stage: Stage): Director {
       const end = now();
       fly(end, introPose(end), INTRO_MS, true);
     },
-    setInset(right, bottom) {
+    setInset(left, right, bottom) {
+      inset.left = left;
       inset.right = right;
       inset.bottom = bottom;
     },
@@ -110,7 +112,8 @@ export function createDirector(stage: Stage): Director {
       const dt = Math.min((time - last) / 1000, 0.1);
       last = time;
       const k = 1 - Math.exp(-SHIFT_RATE * dt);
-      shift.x += (inset.right / 2 - shift.x) * k;
+      // srodek kadru = srodek wolnego pola miedzy lista notowan a panelem
+      shift.x += ((inset.right - inset.left) / 2 - shift.x) * k;
       shift.y += (inset.bottom / 2 - shift.y) * k;
       const w = stage.renderer.domElement.clientWidth;
       const h = stage.renderer.domElement.clientHeight;

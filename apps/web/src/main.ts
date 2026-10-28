@@ -56,7 +56,7 @@ const select = (ticker: Ticker | null, from: HTMLElement | null = null) => {
   if (!ticker) {
     panel.close();
     director.release();
-    director.setInset(0, 0);
+    fitInset();
     send({ type: "focus", ticker: null });
     if (from !== canvas) opener?.focus();
     opener = null;
@@ -79,12 +79,22 @@ const quotes = createQuotes(select, (t) => {
 const newsBar = createNewsBar(select);
 // panel zaslania prawa strone (komputer) albo dol ekranu (telefon) — scena przesuwa obraz o tyle
 const fitInset = () => {
-  if (panel.element.hidden) return;
+  // bez panelu: na wezszym ekranie makieta odsuwa sie od listy notowan, zeby tabliczki nie wchodzily pod nia
+  if (panel.element.hidden) {
+    const list = document.querySelector<HTMLElement>(".notowania");
+    const narrow = window.innerWidth < 1200 && window.innerWidth > 720;
+    // o polowe: cala lista zepchnelaby prawa krawedz makiety poza ekran
+    director.setInset(narrow && list ? (list.offsetLeft + list.offsetWidth) / 2 : 0, 0, 0);
+    return;
+  }
   // offsetLeft/Top to miejsce z ukladu strony, bez transformacji: animacja wjazdu ich nie przesuwa
   // (getBoundingClientRect zmierzylby panel w polowie drogi i obraz zostalby przesuniety za malo)
   const { offsetLeft: left, offsetTop: top } = panel.element;
   const bottomSheet = left < 1;
-  director.setInset(bottomSheet ? 0 : window.innerWidth - left, bottomSheet ? window.innerHeight - top : 0);
+  // na komputerze z lewej stoi lista notowan — budynek ma wyladowac miedzy nia a panelem
+  const list = document.querySelector<HTMLElement>(".notowania");
+  const listEdge = !bottomSheet && list ? list.offsetLeft + list.offsetWidth : 0;
+  director.setInset(listEdge, bottomSheet ? 0 : window.innerWidth - left, bottomSheet ? window.innerHeight - top : 0);
 };
 new ResizeObserver(fitInset).observe(panel.element);
 window.addEventListener("resize", fitInset);
