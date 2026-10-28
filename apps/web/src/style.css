@@ -537,6 +537,17 @@ body[data-panel] .hud {
   cursor: default;
 }
 
+/* przy otwartym panelu na mniejszym ekranie pasek wiadomosci jest waski: dwie linie zamiast urwanego zdania */
+@media (max-width: 1100px) {
+  body[data-panel] .wiadomosci-tekst {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    white-space: normal;
+    line-height: 1.35;
+  }
+}
+
 /* --- panel spolki --- */
 
 .panel {
@@ -547,12 +558,22 @@ body[data-panel] .hud {
   /* bez rozmycia tla: pod panelem co klatke zmienia sie scena WebGL, a rozmycie tak duzej
      powierzchni liczone od nowa w kazdej klatce zatyka slabsze karty i telefony */
   backdrop-filter: none;
-  background: rgb(11 18 32 / 95%);
+  background: rgb(15 23 42 / 96%);
   display: flex;
   flex-direction: column;
   width: var(--panel);
+  box-sizing: border-box;
   overflow: hidden;
-  animation: wjazd-z-prawej 0.35s ease-out;
+  animation: wjazd-z-prawej 0.38s var(--ruch);
+}
+
+/* zielona nitka u gory jak na kartach flagowych portfolio */
+.panel::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgb(16 185 129 / 70%), transparent);
 }
 
 .panel[hidden] {
@@ -575,7 +596,9 @@ body[data-panel] .hud {
 
 @media (prefers-reduced-motion: reduce) {
   .panel,
-  .ladowanie-pasek span {
+  .ladowanie-pasek span,
+  .ladowanie-znacznik span,
+  .hud-nazwa::before {
     animation: none !important;
   }
 }
@@ -585,23 +608,26 @@ body[data-panel] .hud {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  padding: 14px 14px 0 18px;
+  padding: 16px 14px 0 18px;
 }
 
 .panel-nazwa {
   margin: 0;
-  font-size: 1.05rem;
-  font-weight: 600;
+  font: 600 1.15rem/1.25 var(--display);
+  letter-spacing: -0.01em;
+  color: var(--tekst-jasny);
 }
 
 .panel-zaklad {
-  margin: 2px 0 0;
-  font-size: 0.82rem;
-  color: var(--przygaszony);
+  margin: 4px 0 0;
+  font: 0.74rem/1.4 var(--mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--wyblakly);
 }
 
 .panel-zaklad[data-stoi="true"] {
-  color: var(--spadek);
+  color: var(--spadek-tekst);
   font-weight: 600;
 }
 
@@ -612,30 +638,43 @@ body[data-panel] .hud {
   border: 1px solid var(--krawedz);
   border-radius: 8px;
   background: transparent;
-  color: var(--tekst);
+  color: var(--przygaszony);
   font-size: 1.4rem;
   line-height: 1;
   cursor: pointer;
+  transition:
+    background-color 0.15s,
+    color 0.15s;
 }
 
 .panel-zamknij:hover {
-  background: rgb(147 164 187 / 10%);
+  background: rgb(148 163 184 / 8%);
+  color: var(--tekst-jasny);
 }
 
 .panel-kurs {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: 12px;
-  padding: 4px 18px 8px;
+  gap: 2px 12px;
+  padding: 8px 18px 10px;
 }
 
 .panel-cena {
-  font-size: 1.9rem;
-  font-weight: 700;
+  white-space: nowrap;
+  font: 700 2rem/1.1 var(--mono);
+  letter-spacing: -0.03em;
+  color: var(--tekst-jasny);
 }
 
 .panel-zmiana {
-  font-size: 0.95rem;
+  white-space: nowrap;
+  font: 0.85rem/1 var(--mono);
+}
+
+.panel-tresc:focus-visible {
+  outline: 2px solid var(--wzrost);
+  outline-offset: -2px;
 }
 
 .panel-tresc {
@@ -643,15 +682,27 @@ body[data-panel] .hud {
   overflow-y: auto;
   padding: 0 18px 18px;
   overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--krawedz-mocna) transparent;
 }
 
 .panel h3 {
-  margin: 18px 0 8px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 20px 0 8px;
+  font: 500 0.7rem/1 var(--mono);
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--przygaszony);
+  color: var(--wyblakly);
+}
+
+/* linia za etykieta sekcji, jak "01 PRZEGLAD ———" w modalu portfolio */
+.panel h3::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--krawedz);
 }
 
 .panel-wykres {
@@ -662,8 +713,8 @@ body[data-panel] .hud {
 
 .panel-legenda {
   margin: 4px 0 0;
-  font-size: 0.75rem;
-  color: var(--przygaszony);
+  font: 0.7rem/1.4 var(--mono);
+  color: var(--wyblakly);
 }
 
 .legenda-wycena {
@@ -691,18 +742,17 @@ body[data-panel] .hud {
   grid-template-columns: 1fr auto;
   gap: 8px;
   padding: 2px 6px;
-  font-size: 0.82rem;
-  line-height: 1.35;
+  font: 0.78rem/1.45 var(--mono);
 }
 
 .arkusz-sprzedaz li {
-  color: #f08a8d;
-  background: linear-gradient(to left, rgb(229 72 77 / 20%) calc(var(--udzial) * 100%), transparent 0);
+  color: var(--spadek-tekst);
+  background: linear-gradient(to left, rgb(239 68 68 / 16%) calc(var(--udzial) * 100%), transparent 0);
 }
 
 .arkusz-kupno li {
-  color: #6fdc9f;
-  background: linear-gradient(to left, rgb(47 191 113 / 20%) calc(var(--udzial) * 100%), transparent 0);
+  color: var(--wzrost-tekst);
+  background: linear-gradient(to left, rgb(16 185 129 / 16%) calc(var(--udzial) * 100%), transparent 0);
 }
 
 .arkusz li span:last-child,
@@ -713,10 +763,10 @@ body[data-panel] .hud {
 
 .arkusz-spread {
   margin: 3px 0;
-  padding: 2px 6px;
-  border-block: 1px solid var(--krawedz);
-  font-size: 0.75rem;
-  color: var(--przygaszony);
+  padding: 3px 6px;
+  border-block: 1px dashed var(--krawedz-mocna);
+  font: 0.7rem/1.4 var(--mono);
+  color: var(--wyblakly);
   text-align: center;
 }
 
@@ -725,15 +775,15 @@ body[data-panel] .hud {
 }
 
 .tasma li[data-strona="kupno"] {
-  color: #6fdc9f;
+  color: var(--wzrost-tekst);
 }
 
 .tasma li[data-strona="sprzedaz"] {
-  color: #f08a8d;
+  color: var(--spadek-tekst);
 }
 
 .tasma li span:last-child {
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   text-align: right;
   opacity: 0.8;
 }
@@ -741,9 +791,9 @@ body[data-panel] .hud {
 .fundamenty {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 5px 12px;
+  gap: 6px 12px;
   margin: 0;
-  font-size: 0.86rem;
+  font-size: 0.84rem;
 }
 
 .fundamenty > div {
@@ -756,7 +806,18 @@ body[data-panel] .hud {
 
 .fundamenty dd {
   margin: 0;
+  font-family: var(--mono);
+  font-size: 0.8rem;
   text-align: right;
+  color: var(--tekst-jasny);
+}
+
+.fundamenty dd[data-kierunek="wzrost"] {
+  color: var(--wzrost-tekst);
+}
+
+.fundamenty dd[data-kierunek="spadek"] {
+  color: var(--spadek-tekst);
 }
 
 .panel-wiadomosci li {
@@ -764,8 +825,8 @@ body[data-panel] .hud {
   grid-template-columns: 3.4em 1fr;
   gap: 8px;
   padding: 6px 0 6px 10px;
-  border-left: 3px solid var(--przygaszony);
-  font-size: 0.86rem;
+  border-left: 2px solid var(--krawedz-mocna);
+  font-size: 0.84rem;
   color: var(--tekst);
 }
 
@@ -789,6 +850,12 @@ body[data-panel] .hud {
 }
 
 .panel-wiadomosci li span:first-child {
+  font: 0.74rem/1.6 var(--mono);
+  color: var(--wyblakly);
+}
+
+.tasma li.pusto {
+  display: block;
   color: var(--przygaszony);
 }
 

@@ -42,7 +42,7 @@ export function createPanel(onClose: () => void): Panel {
       <strong class="panel-cena" data-testid="panel-cena"></strong>
       <span class="panel-zmiana"></span>
     </div>
-    <div class="panel-tresc">
+    <div class="panel-tresc" tabindex="0" aria-label="Szczegóły spółki">
       <section aria-label="Wykres">
         <canvas class="panel-wykres" role="img" aria-label="Wykres świecowy z ostatnich trzech dni"></canvas>
         <p class="panel-legenda"><span class="legenda-wycena"></span> wartość godziwa · świeca = 1/20 dnia</p>

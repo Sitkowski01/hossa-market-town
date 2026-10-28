@@ -3,7 +3,8 @@ import { FONT } from "../fonts.js";
 import { labelledGrid, layoutChart } from "../world/chart.js";
 import { price } from "../world/format.js";
 
-const COLORS = { up: "#2fbf71", down: "#e5484d", grid: "rgb(147 164 187 / 14%)", label: "#93a4bb", fair: "#e0b44c", last: "#e6edf6" };
+// paleta portfolio: zielen i czerwien jak na kartach, siatka w kolorze ramek, etykiety przygaszone
+const COLORS = { up: "#10b981", down: "#ef4444", grid: "rgb(148 163 184 / 12%)", label: "#94a3b8", fair: "#e0b44c", last: "#f8fafc" };
 /** Pas po prawej na ceny siatki. */
 const AXIS = 58;
 
@@ -73,7 +74,7 @@ export function drawChart(canvas: HTMLCanvasElement, bars: readonly Bar[], fair:
     g.fillStyle = fg;
     g.fillText(text, plot.width + 7, y);
   };
-  if (showFair) tag(fy, price(fair).replace(" zł", ""), COLORS.fair, "#0b1220");
+  if (showFair) tag(fy, price(fair).replace(" zł", ""), COLORS.fair, "#030712");
   const lastBar = bars.at(-1);
-  tag(ly, price(last).replace(" zł", ""), lastBar && lastBar.close < lastBar.open ? COLORS.down : COLORS.up, "#0b1220");
+  tag(ly, price(last).replace(" zł", ""), lastBar && lastBar.close < lastBar.open ? COLORS.down : COLORS.up, "#030712");
 }
